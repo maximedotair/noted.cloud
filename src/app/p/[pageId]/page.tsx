@@ -20,15 +20,16 @@ export default function PublicPage() {
     
     const fetchPage = async () => {
       try {
-        const fetchedPage = await DatabaseService.getPage(pageId);
-        if (fetchedPage && fetchedPage.isPublic) {
-          setPage(fetchedPage);
-        } else {
-          setError('This page is not public or does not exist.');
+        const response = await fetch(`/api/p/${pageId}`);
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || `Failed to fetch: ${response.status}`);
         }
+        const fetchedPage = await response.json();
+        setPage(fetchedPage);
       } catch (err) {
         console.error('Error fetching public page:', err);
-        setError('Could not load the page.');
+        setError((err as Error).message || 'Could not load the page.');
       } finally {
         setLoading(false);
       }
@@ -59,8 +60,8 @@ export default function PublicPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
+    <div className="relative min-h-screen bg-gray-50">
+      <main className="container mx-auto px-4 py-8 max-w-4xl pb-24">
         <div className="bg-white rounded-lg shadow-lg p-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">{page.title}</h1>
           <div className="text-sm text-gray-500 mb-6">
@@ -70,8 +71,8 @@ export default function PublicPage() {
             <RichTextRenderer content={page.content} onTextSelect={() => {}} />
           </div>
         </div>
-      </div>
-      <footer className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-sm border-t border-gray-200 p-4">
+      </main>
+      <footer className="absolute bottom-0 left-0 right-0 bg-white/80 backdrop-blur-sm border-t border-gray-200 p-4">
         <div className="container mx-auto flex items-center justify-center text-center">
           <p className="text-gray-700 text-sm">
             Powered by{' '}

@@ -30,7 +30,7 @@ export interface NotesActions {
   // Actions des pages
   loadPages: () => Promise<void>;
   createPage: (title: string, parentId?: string) => Promise<Page>;
-  updatePage: (id: string, updates: Partial<Page>) => Promise<void>;
+  updatePage: (id: string, updates: Partial<Page>) => Promise<boolean>;
   deletePage: (id: string) => Promise<void>;
   setCurrentPage: (id: string | null) => Promise<void>;
   
@@ -117,13 +117,44 @@ export const useNotesStore = create<NotesStore>()(
       return newPage;
     },
 
-    updatePage: async (id: string, updates: Partial<Page>) => {
-      const updatedPage = await DatabaseService.updatePage(id, updates);
-      if (updatedPage) {
-        set((state) => ({
-          pages: { ...state.pages, [id]: updatedPage }
-        }));
+    updatePage: async (id: string, updates: Partial<Page>): Promise<boolean> => {
+      // 1. Mettre à jour la base de données locale (optimiste)
+      const pageToUpdate = get().pages[id];
+      if (!pageToUpdate) return false;
+
+      const updatedPage = { ...pageToUpdate, ...updates, updatedAt: new Date() };
+
+      await DatabaseService.updatePage(id, updates);
+      
+      set((state) => ({
+        pages: { ...state.pages, [id]: updatedPage }
+      }));
+
+      // 2. Synchroniser avec le serveur si le statut public change
+      if (updates.isPublic !== undefined) {
+        try {
+          const response = await fetch(`/api/p/${id}/publish`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pageData: updatedPage, isPublic: updates.isPublic }),
+          });
+
+          if (!response.ok) {
+            throw new Error('Server synchronization failed');
+          }
+          return true; // Succès
+        } catch (error) {
+          console.error("Erreur lors de l'appel à l'API de publication:", error);
+          // Annuler la modification locale en cas d'échec de la synchronisation
+          await DatabaseService.updatePage(id, { isPublic: pageToUpdate.isPublic });
+          set((state) => ({
+            pages: { ...state.pages, [id]: pageToUpdate }
+          }));
+          return false; // Échec
+        }
       }
+      
+      return true; // Succès si pas de changement de statut public
     },
 
     deletePage: async (id: string) => {
