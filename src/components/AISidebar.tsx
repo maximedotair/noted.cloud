@@ -171,7 +171,7 @@ export default function AISidebar({ selectionContext, fullContent, apiKey, model
   ];
 
   return (
-    <div className="w-full bg-gray-50 flex flex-col h-96 max-h-[600px]">
+    <div className="w-full bg-gray-50 flex flex-col h-64 max-h-[400px]">
       {/* Header */}
       <div className="px-4 py-2 border-b border-gray-200 bg-white flex items-center justify-between">
         <div className="flex items-center gap-2">

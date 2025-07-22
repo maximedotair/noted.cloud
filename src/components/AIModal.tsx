@@ -50,13 +50,15 @@ export default function AIModal({ context, onClose, currentPageContent }: AIModa
         aiResponse = await api.explainSelection(
           context.selectedText,
           currentPageContent,
-          selectedModel
+          selectedModel,
+          settings.defaultLanguage
         );
       } else if (context.type === 'command' && context.command) {
         aiResponse = await api.processSlashCommand(
           context.command,
           currentPageContent,
-          selectedModel
+          selectedModel,
+          settings.defaultLanguage
         );
       } else {
         throw new Error('Invalid context');
@@ -215,6 +217,21 @@ export default function AIModal({ context, onClose, currentPageContent }: AIModa
                         </div>
                       </div>
                     )}
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Response Language:
+                    </label>
+                    <input
+                      type="text"
+                      value={settings.defaultLanguage || 'en'}
+                      onChange={(e) => updateSettings({ defaultLanguage: e.target.value })}
+                      placeholder="en, fr, es, etc."
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      ISO 639-1 language code (en, fr, es, etc.)
+                    </p>
                   </div>
                   <div className="flex items-center justify-between">
                     <span>Context:</span>

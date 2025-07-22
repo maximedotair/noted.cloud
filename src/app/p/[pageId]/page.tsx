@@ -39,7 +39,7 @@ export default function PublicPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
@@ -47,7 +47,7 @@ export default function PublicPage() {
   
   if (error || !page) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center text-center">
+      <div className="min-h-screen flex items-center justify-center text-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-800 mb-2">Page Not Found</h1>
           <p className="text-gray-600">{error}</p>
@@ -60,16 +60,12 @@ export default function PublicPage() {
   }
 
   return (
-    <div className="relative min-h-screen bg-gray-50">
-      <main className="container mx-auto px-4 py-8 max-w-4xl pb-24">
-        <div className="bg-white rounded-lg shadow-lg p-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">{page.title}</h1>
-          <div className="text-sm text-gray-500 mb-6">
-            Last updated: {new Date(page.updatedAt).toLocaleDateString()}
-          </div>
-          <div className="prose prose-lg max-w-none">
-            <RichTextRenderer content={page.content} onTextSelect={() => {}} />
-          </div>
+    <div className="relative min-h-screen">
+      <main className="pt-8 pl-8 pb-24">
+        <h1 className="text-4xl font-bold text-gray-900 mb-4">{page.title}</h1>
+      
+        <div className="prose prose-lg max-w-none">
+          <RichTextRenderer content={page.content} onTextSelect={() => {}} />
         </div>
       </main>
       <footer className="absolute bottom-0 left-0 right-0 bg-white/80 backdrop-blur-sm border-t border-gray-200 p-4">
@@ -79,7 +75,7 @@ export default function PublicPage() {
             <Link href="/" className="font-semibold text-blue-600 hover:underline">
               Noted.cloud
             </Link>
-            . Create and share your own notes for free!
+            . Create and share your own notes for free! Enriched by LLM.
           </p>
         </div>
       </footer>

@@ -159,6 +159,23 @@ export default function Sidebar({ onCreatePage }: SidebarProps) {
           </div>
         )}
       </div>
+
+      {/* Beta Info */}
+      <div className="p-4 border-t border-gray-200 bg-gray-50">
+        <div className="text-xs text-gray-600 mb-2">
+          <p className="mb-1">
+            Beta version with persistent storage via your browser. Account/email backup coming soon for robustness.
+          </p>
+          <a
+            href="https://github.com/maximedotair/noted.cloud"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 hover:text-blue-800 underline"
+          >
+            GitHub Repository
+          </a>
+        </div>
+      </div>
     </div>
   );
 }
