@@ -174,6 +174,13 @@ export default function SetupForm() {
             )}
           </button>
         </form>
+
+        {/* Product Hunt Badge */}
+        <div className="mt-8 text-center">
+          <a href="https://www.producthunt.com/products/noted-cloud?embed=true&utm_source=badge-featured&utm_medium=badge&utm_source=badge-noted&#0045;cloud" target="_blank" rel="noopener noreferrer">
+            <img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=996188&theme=light&t=1753193235000" alt="Noted.cloud - Bring Contextual AI Explanations to Any Note | Product Hunt" style={{ width: '250px', height: '54px' }} width="250" height="54" />
+          </a>
+        </div>
       </div>
     </div>
   );

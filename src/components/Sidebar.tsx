@@ -160,9 +160,14 @@ export default function Sidebar({ onCreatePage }: SidebarProps) {
         )}
       </div>
 
-      {/* Beta Info */}
+      {/* Product Hunt Badge */}
       <div className="p-4 border-t border-gray-200 bg-gray-50">
-        <div className="text-xs text-gray-600 mb-2">
+        <div className="mb-4 text-center">
+          <a href="https://www.producthunt.com/products/noted-cloud?embed=true&utm_source=badge-featured&utm_medium=badge&utm_source=badge-noted&#0045;cloud" target="_blank" rel="noopener noreferrer">
+            <img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=996188&theme=light&t=1753193235000" alt="Noted.cloud - Bring Contextual AI Explanations to Any Note | Product Hunt" style={{ width: '250px', height: '54px' }} width="250" height="54" />
+          </a>
+        </div>
+        <div className="text-xs text-gray-600">
           <p className="mb-1">
             Beta version with persistent storage via your browser. Account/email backup coming soon for robustness.
           </p>
