@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useNotesStore, useCurrentPage, useIsAIModalOpen, useAIModalContext } from '@/lib/store';
+import { useNotesStore, useCurrentPage, useIsAIModalOpen, useAIModalContext, useSettings } from '@/lib/store';
 import Sidebar from './Sidebar';
 import Editor from './Editor';
 import AIModal from './AIModal';
@@ -11,6 +11,7 @@ export default function NotesApp() {
   const currentPage = useCurrentPage();
   const isAIModalOpen = useIsAIModalOpen();
   const aiContext = useAIModalContext();
+  const settings = useSettings();
 
   // Initialiser le store au démarrage
   useEffect(() => {
@@ -42,9 +43,11 @@ export default function NotesApp() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
         {currentPage ? (
-          <Editor 
+          <Editor
             page={currentPage}
             onOpenAIModal={handleOpenAIModal}
+            apiKey={settings.openrouterApiKey}
+            model={settings.defaultModel}
           />
         ) : (
           <div className="flex-1 flex items-center justify-center">

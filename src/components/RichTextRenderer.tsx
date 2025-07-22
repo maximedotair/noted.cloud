@@ -1,6 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { tomorrow } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 interface HighlightedText {
   id: string;
@@ -67,70 +70,18 @@ export default function RichTextRenderer({ content, onTextSelect, className = ''
   };
 
   const renderContent = () => {
-    const processedContent = content;
+    const lines = content.split('\n');
     const elements: React.ReactElement[] = [];
-
-    // Séparer par lignes pour traitement
-    const lines = processedContent.split('\n');
     
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       
       if (line.trim().startsWith('>')) {
-        // Rendu d'une citation
+        // Rendu d'une citation avec formatage Markdown
         const citationMatch = line.match(/^>\s*\[([^\]]+)\]\s*(.+)$/);
         if (citationMatch) {
           const citationId = citationMatch[1];
           const citationContent = citationMatch[2];
-          
-          // Traiter les marqueurs dans les citations comme du texte normal
-          const citationElements: (string | React.ReactElement)[] = [];
-          let lastIndex = 0;
-          
-          // Chercher les marqueurs dans le contenu de la citation
-          const highlightRegex = /\[\[([^:]+):([^\]]+)\]\]/g;
-          let match;
-          
-          while ((match = highlightRegex.exec(citationContent)) !== null) {
-            const beforeMatch = citationContent.substring(lastIndex, match.index);
-            if (beforeMatch) {
-              citationElements.push(beforeMatch);
-            }
-
-            const highlightId = match[2];
-            const highlightText = match[1];
-            
-            citationElements.push(
-              <span
-                key={`citation-highlight-${highlightId}`}
-                className={`
-                  bg-yellow-100
-                  border-b-2 border-yellow-400
-                  cursor-help
-                  transition-all duration-200 px-1 rounded-sm
-                  ${hoveredId === highlightId ? 'bg-yellow-200 border-yellow-500 shadow-sm' : ''}
-                `}
-                onMouseEnter={() => setHoveredId(highlightId)}
-                onMouseLeave={() => setHoveredId(null)}
-                onMouseUp={handleTextSelection}
-                title={`Ce texte a une citation #${highlightId.slice(-4)}`}
-              >
-                {highlightText}
-              </span>
-            );
-
-            lastIndex = match.index + match[0].length;
-          }
-          
-          // Ajouter le reste du contenu
-          if (lastIndex < citationContent.length) {
-            citationElements.push(citationContent.substring(lastIndex));
-          }
-          
-          // Si aucun highlight trouvé, garder le contenu simple
-          if (citationElements.length === 0) {
-            citationElements.push(citationContent);
-          }
           
           elements.push(
             <div
@@ -147,10 +98,34 @@ export default function RichTextRenderer({ content, onTextSelect, className = ''
               onMouseLeave={() => setHoveredId(null)}
             >
               <div
-                className="text-gray-700 italic leading-relaxed cursor-text select-text whitespace-pre-wrap"
+                className="text-gray-700 italic leading-relaxed cursor-text select-text"
                 onMouseUp={handleTextSelection}
               >
-                {citationElements}
+                <ReactMarkdown
+                  components={{
+                    code(props) {
+                      const { className, children } = props;
+                      const match = /language-(\w+)/.exec(className || '');
+                      const isInline = !match;
+                      return !isInline ? (
+                        <SyntaxHighlighter
+                          style={tomorrow}
+                          language={match?.[1] || 'text'}
+                          PreTag="div"
+                          className="text-sm"
+                        >
+                          {String(children).replace(/\n$/, '')}
+                        </SyntaxHighlighter>
+                      ) : (
+                        <code className={className}>
+                          {children}
+                        </code>
+                      );
+                    }
+                  }}
+                >
+                  {citationContent}
+                </ReactMarkdown>
               </div>
             </div>
           );
@@ -159,63 +134,49 @@ export default function RichTextRenderer({ content, onTextSelect, className = ''
         // Ligne vide
         elements.push(<div key={`empty-${i}`} className="h-4" />);
       } else {
-        // Ligne de texte normale avec possible highlights
+        // Ligne normale avec formatage Markdown et highlights
         const processedLine = line;
-        const lineElements: (string | React.ReactElement)[] = [];
-        let lastIndex = 0;
-
-        // Trouver et remplacer les marqueurs dans cette ligne
-        const highlightRegex = /\[\[([^:]+):([^\]]+)\]\]/g;
-        let match;
         
-        while ((match = highlightRegex.exec(line)) !== null) {
-          const beforeMatch = processedLine.substring(lastIndex, match.index);
-          if (beforeMatch) {
-            lineElements.push(beforeMatch);
-          }
-
-          const highlightId = match[2];
-          const highlightText = match[1];
-          
-          lineElements.push(
-            <span
-              key={`highlight-${highlightId}`}
-              className={`
-                bg-yellow-100 
-                border-b-2 border-yellow-400 
-                cursor-help 
-                transition-all duration-200 px-1 rounded-sm
-                ${hoveredId === highlightId ? 'bg-yellow-200 border-yellow-500 shadow-sm' : ''}
-              `}
-              onMouseEnter={() => setHoveredId(highlightId)}
-              onMouseLeave={() => setHoveredId(null)}
-              onMouseUp={handleTextSelection}
-              title={`Ce texte a une citation #${highlightId.slice(-4)}`}
-            >
-              {highlightText}
-            </span>
-          );
-
-          lastIndex = match.index + match[0].length;
-        }
-
-        // Ajouter le reste de la ligne
-        if (lastIndex < processedLine.length) {
-          lineElements.push(processedLine.substring(lastIndex));
-        }
-
-        // Si aucun highlight trouvé, garder la ligne simple
-        if (lineElements.length === 0) {
-          lineElements.push(processedLine);
-        }
-
+        // Traiter les marqueurs [[texte:id]] dans le contenu
+        let processedContent = processedLine;
+        const highlightRegex = /\[\[([^:]+):([^\]]+)\]\]/g;
+        
+        // Remplacer les marqueurs par le texte sans span HTML
+        processedContent = processedContent.replace(highlightRegex, (match, text, id) => {
+          return text; // Retourner simplement le texte sans span
+        });
+        
         elements.push(
-          <div 
-            key={`line-${i}`} 
+          <div
+            key={`line-${i}`}
             className="leading-relaxed cursor-text select-text"
             onMouseUp={handleTextSelection}
           >
-            {lineElements}
+            <ReactMarkdown
+              components={{
+                code(props) {
+                  const { className, children } = props;
+                  const match = /language-(\w+)/.exec(className || '');
+                  const isInline = !match;
+                  return !isInline ? (
+                    <SyntaxHighlighter
+                      style={tomorrow}
+                      language={match?.[1] || 'text'}
+                      PreTag="div"
+                      className="text-sm"
+                    >
+                      {String(children).replace(/\n$/, '')}
+                    </SyntaxHighlighter>
+                  ) : (
+                    <code className={className}>
+                      {children}
+                    </code>
+                  );
+                }
+              }}
+            >
+              {processedContent}
+            </ReactMarkdown>
           </div>
         );
       }
@@ -225,18 +186,10 @@ export default function RichTextRenderer({ content, onTextSelect, className = ''
   };
 
   return (
-    <div className={`prose prose-gray max-w-none ${className}`}>
+    <div className={`max-w-none ${className}`} style={{ lineHeight: '1.7' }}>
       {renderContent()}
       
-      {/* Debug info (peut être supprimé en production) */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="mt-8 p-4 bg-gray-100 rounded text-xs">
-          <div className="font-bold mb-2">Debug Info:</div>
-          <div>Highlights: {highlights.length}</div>
-          <div>Citations: {citations.length}</div>
-          <div>Hovered ID: {hoveredId || 'none'}</div>
-        </div>
-      )}
+      
     </div>
   );
 }

@@ -1,15 +1,25 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNotesStore } from '@/lib/store';
 import { DEFAULT_MODELS } from '@/lib/openrouter';
 
 export default function SetupForm() {
-  const { updateSettings } = useNotesStore();
+  const { updateSettings, settings } = useNotesStore();
   const [apiKey, setApiKey] = useState('');
-  const [selectedModel, setSelectedModel] = useState('anthropic/claude-3.5-sonnet');
+  const [selectedModel, setSelectedModel] = useState('anthropic/claude-sonnet-4');
+  const [defaultLanguage, setDefaultLanguage] = useState('en');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Charger les paramètres existants depuis le store au démarrage
+  useEffect(() => {
+    if (settings.openrouterApiKey) {
+      setApiKey(settings.openrouterApiKey);
+      setSelectedModel(settings.defaultModel);
+      setDefaultLanguage(settings.defaultLanguage || 'en');
+    }
+  }, [settings]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,13 +45,14 @@ export default function SetupForm() {
         throw new Error('Invalid API key');
       }
 
-      // Sauvegarder les paramètres
-      updateSettings({
+      // Sauvegarder les paramètres dans IndexedDB
+      await updateSettings({
         openrouterApiKey: apiKey,
         defaultModel: selectedModel,
       });
 
     } catch (err) {
+      console.error('Setup error:', err);
       setError('Invalid API key. Please check your key.');
     } finally {
       setIsLoading(false);
@@ -119,6 +130,25 @@ export default function SetupForm() {
                 </option>
               ))}
             </select>
+          </div>
+
+          <div>
+            <label htmlFor="defaultLanguage" className="block text-sm font-medium text-gray-700 mb-2">
+              Default Language
+            </label>
+            <input
+              type="text"
+              id="defaultLanguage"
+              value={defaultLanguage}
+              onChange={(e) => setDefaultLanguage(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="en"
+              maxLength={2}
+              disabled={isLoading}
+            />
+            <p className="mt-2 text-xs text-gray-500">
+              ISO 639-1 language code (e.g., en, fr, es)
+            </p>
           </div>
 
           {error && (

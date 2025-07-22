@@ -25,11 +25,11 @@ export default function Home() {
     );
   }
 
-  // Si pas configuré, afficher le formulaire de setup
-  if (!isConfigured) {
-    return <SetupForm />;
+  // Si configuré via le store, afficher l'application
+  if (isConfigured) {
+    return <NotesApp />;
   }
 
-  // Si configuré, afficher l'application
-  return <NotesApp />;
+  // Sinon, afficher le formulaire de setup
+  return <SetupForm />;
 }

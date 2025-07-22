@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNotesStore } from '@/lib/store';
 import type { Page } from '@/lib/database';
-import TextTooltip from './TextTooltip';
 import RichTextRenderer from './RichTextRenderer';
+import AISidebar from './AISidebar';
 
 interface EditorProps {
   page: Page;
@@ -14,20 +14,18 @@ interface EditorProps {
     command?: string;
     position?: { x: number; y: number };
   }) => void;
+  apiKey: string;
+  model: string;
 }
 
-export default function Editor({ page, onOpenAIModal }: EditorProps) {
-  const { updatePage } = useNotesStore();
+export default function Editor({ page, onOpenAIModal, apiKey, model }: EditorProps) {
+  const { updatePage, settings, updateSettings } = useNotesStore();
   const [title, setTitle] = useState(page.title);
   const [content, setContent] = useState(page.content);
   const [isTypingSlash, setIsTypingSlash] = useState(false);
   const [slashCommand, setSlashCommand] = useState('');
   const [slashPosition, setSlashPosition] = useState({ x: 0, y: 0 });
-  const [showTooltip, setShowTooltip] = useState(false);
-  const [tooltipData, setTooltipData] = useState<{
-    selectedText: string;
-    position: { x: number; y: number };
-  } | null>(null);
+  const [selectedText, setSelectedText] = useState<string | null>(null);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const contentRef = useRef<HTMLTextAreaElement>(null);
 
@@ -35,7 +33,7 @@ export default function Editor({ page, onOpenAIModal }: EditorProps) {
   useEffect(() => {
     setTitle(page.title);
     setContent(page.content);
-  }, [page.id]);
+  }, [page.id, page.title, page.content]);
 
   // Auto-save (only if local states differ from page)
   useEffect(() => {
@@ -46,7 +44,7 @@ export default function Editor({ page, onOpenAIModal }: EditorProps) {
     }, 1000);
 
     return () => clearTimeout(timeoutId);
-  }, [title, content, page.id, updatePage]);
+  }, [title, content, page.id, page.title, page.content, updatePage]);
 
   const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newContent = e.target.value;
@@ -131,8 +129,8 @@ export default function Editor({ page, onOpenAIModal }: EditorProps) {
   const handleTextSelection = () => {
     const textarea = contentRef.current;
     if (textarea) {
-      const selectedText = textarea.value.substring(textarea.selectionStart, textarea.selectionEnd);
-      if (selectedText.trim()) {
+      const text = textarea.value.substring(textarea.selectionStart, textarea.selectionEnd);
+      if (text.trim()) {
         // Check if selected text is already part of a marker [[text:id]]
         const startIndex = textarea.selectionStart;
         const endIndex = textarea.selectionEnd;
@@ -140,128 +138,67 @@ export default function Editor({ page, onOpenAIModal }: EditorProps) {
         // Search for markers in and around selection
         const contextBefore = content.substring(Math.max(0, startIndex - 50), startIndex);
         const contextAfter = content.substring(endIndex, Math.min(content.length, endIndex + 50));
-        const fullContext = contextBefore + selectedText + contextAfter;
         
         // Check if selection is already in a marker [[...]]
         const isInMarker = /\[\[[^\]]*$/.test(contextBefore) && /^[^\[]*\]\]/.test(contextAfter);
         
         // Exclude selections that already include complete markers
-        const hasCompleteMarker = /\[\[.*?\]\]/.test(selectedText);
+        const hasCompleteMarker = /\[\[.*?\]\]/.test(text);
         
         // Allow selection everywhere except in incomplete markers
         if (!isInMarker && !hasCompleteMarker) {
-          const rect = textarea.getBoundingClientRect();
-          
-          setTooltipData({
-            selectedText: selectedText.trim(),
-            position: { x: rect.left + rect.width / 2, y: rect.top - 50 }
-          });
-          setShowTooltip(true);
+          setSelectedText(text.trim());
         } else {
-          setShowTooltip(false);
+          setSelectedText(null);
         }
       } else {
-        setShowTooltip(false);
+        setSelectedText(null);
       }
     }
   };
 
-  const handleTooltipExplain = () => {
-    if (tooltipData) {
-      onOpenAIModal({
-        type: 'explain',
-        selectedText: tooltipData.selectedText,
-        position: tooltipData.position
-      });
-    }
-  };
-
-  const handleCloseTooltip = () => {
-    setShowTooltip(false);
-    setTooltipData(null);
-  };
-
-  const insertTextAtCursor = (text: string, selectedText?: string) => {
+  const insertTextAtCursor = useCallback((text: string, selectedText?: string) => {
     const textarea = contentRef.current;
     if (textarea) {
       const start = textarea.selectionStart;
       const end = textarea.selectionEnd;
       
-      if (selectedText) {
-        // Fixed contextual citation system
-        const beforeSelection = content.substring(0, start);
-        const afterSelection = content.substring(end);
-        
-        // Verify that selected text matches exactly
-        const actualSelectedText = content.substring(start, end);
-        if (actualSelectedText !== selectedText) {
-          console.warn('Selected text mismatch:', { expected: selectedText, actual: actualSelectedText });
-          return;
-        }
-        
-        // Generate unique ID for this citation
-        const citationId = Date.now().toString();
-        
-        // Replace EXACTLY the selected text with marker
-        const markedText = `[[${selectedText}:${citationId}]]`;
-        
-        // Find where to insert citation (end of line/paragraph)
-        let insertPos = end;
-        const afterText = afterSelection;
-        const nextLineBreak = afterText.indexOf('\n');
-        
-        if (nextLineBreak !== -1 && nextLineBreak < 100) {
-          insertPos = end + nextLineBreak;
-        }
-        
-        // Build new content by replacing exactly the selection
-        const newContentBeforeInsertion = beforeSelection + markedText + afterSelection;
-        
-        // Insert citation at the correct position
-        const insertionPoint = beforeSelection.length + markedText.length + (insertPos - end);
-        const beforeCitation = newContentBeforeInsertion.substring(0, insertionPoint);
-        const afterCitation = newContentBeforeInsertion.substring(insertionPoint);
-        
-        // Citation without indentation, always at the same level
-        const citation = `\n\n> [${citationId}] ${text.split('\n').join(' ')}\n`;
-        
-        const finalContent = beforeCitation + citation + afterCitation;
-        setContent(finalContent);
-        
-        // Reposition cursor après la citation
-        setTimeout(() => {
-          const newPos = beforeCitation.length + citation.length;
-          textarea.selectionStart = textarea.selectionEnd = newPos;
-          textarea.focus();
-        }, 0);
+      // Trouver la position de la ligne actuelle
+      const lines = content.substring(0, start).split('\n');
+      const currentLineIndex = lines.length - 1;
+      
+      // Trouver la position de fin de la ligne actuelle
+      let lineEndPos = start;
+      const remainingContent = content.substring(start);
+      const nextLineBreak = remainingContent.indexOf('\n');
+      
+      if (nextLineBreak !== -1) {
+        lineEndPos = start + nextLineBreak;
       } else {
-        // Mode insertion normale (commande slash)
-        const newContent = content.substring(0, start) + text + content.substring(end);
-        setContent(newContent);
-        
-        setTimeout(() => {
-          textarea.selectionStart = textarea.selectionEnd = start + text.length;
-          textarea.focus();
-        }, 0);
+        lineEndPos = content.length;
       }
+      
+      // Ajouter le texte à la ligne suivante avec une ligne d'espace
+      const beforeLine = content.substring(0, lineEndPos);
+      const afterLine = content.substring(lineEndPos);
+      
+      // Toujours ajouter une ligne d'espace avant le texte
+      const separator = '\n\n';
+      const newContent = beforeLine + separator + text + afterLine;
+      
+      setContent(newContent);
+      
+      // Positionner le curseur après le texte ajouté
+      setTimeout(() => {
+        const newPos = beforeLine.length + separator.length + text.length;
+        textarea.selectionStart = textarea.selectionEnd = newPos;
+        textarea.focus();
+      }, 0);
     }
-  };
+  }, [content]);
 
-  const handlePreviewTextSelect = (selectedText: string, startIndex: number, endIndex: number) => {
-    // Passer en mode édition temporairement pour la sélection
-    setIsPreviewMode(false);
-    
-    // Simuler la sélection dans le mode édition
-    setTimeout(() => {
-      const rect = contentRef.current?.getBoundingClientRect();
-      if (rect) {
-        setTooltipData({
-          selectedText,
-          position: { x: rect.left + rect.width / 2, y: rect.top + 100 }
-        });
-        setShowTooltip(true);
-      }
-    }, 100);
+  const handlePreviewTextSelect = (text: string) => {
+    setSelectedText(text.trim());
   };
 
   // Exposer la fonction d'insertion pour le parent
@@ -270,20 +207,41 @@ export default function Editor({ page, onOpenAIModal }: EditorProps) {
     return () => {
       delete (window as Window & { insertTextAtCursor?: (text: string, selectedText?: string) => void }).insertTextAtCursor;
     };
-  }, [content]);
+  }, [insertTextAtCursor]);
+
+  // Écouter l'événement "add-to-note" depuis l'AISidebar
+  useEffect(() => {
+    const handleAddToNote = (event: CustomEvent) => {
+      const { content: noteContent } = event.detail;
+      if (noteContent) {
+        // Ajouter le texte brut sans système de citations
+        insertTextAtCursor(noteContent);
+      }
+    };
+
+    window.addEventListener('add-to-note', handleAddToNote as EventListener);
+    return () => {
+      window.removeEventListener('add-to-note', handleAddToNote as EventListener);
+    };
+  }, [insertTextAtCursor]);
 
   return (
     <div className="flex-1 flex flex-col bg-white">
       {/* Header */}
-      <div className="border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between mb-3">
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="text-2xl font-bold text-gray-900 bg-transparent border-none outline-none flex-1 placeholder-gray-400"
-            placeholder="Page title..."
-          />
+      <div className="border-b border-gray-200 px-6 py-3">
+        <div className="flex items-center justify-between">
+          <div className="flex-1">
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="text-2xl font-bold text-gray-900 bg-transparent border-none outline-none w-full placeholder-gray-400"
+              placeholder="Page title..."
+            />
+            <div className="text-xs text-gray-400 mt-1">
+              Last modified: {new Date(page.updatedAt).toLocaleString('en-US')}
+            </div>
+          </div>
           {/* Bouton de basculement mode */}
           <div className="flex items-center gap-2 ml-4">
             <button
@@ -298,31 +256,45 @@ export default function Editor({ page, onOpenAIModal }: EditorProps) {
             >
               {isPreviewMode ? '📝 Edit' : '👁️ Preview'}
             </button>
+            <button
+              onClick={() => {
+                updateSettings({ aiAssistantEnabled: !settings.aiAssistantEnabled });
+              }}
+              className={`
+                px-3 py-1 rounded-lg text-sm font-medium transition-all
+                ${settings.aiAssistantEnabled
+                  ? 'bg-green-100 text-green-700 border border-green-200'
+                  : 'bg-red-100 text-red-700 border border-red-200'
+                }
+              `}
+              title={settings.aiAssistantEnabled ? 'Disable AI Assistant' : 'Enable AI Assistant'}
+            >
+              {settings.aiAssistantEnabled ? '🤖 AI ON' : '🤖 AI OFF'}
+            </button>
           </div>
-        </div>
-        <div className="text-sm text-gray-500">
-          Last modified: {new Date(page.updatedAt).toLocaleString('en-US')}
         </div>
       </div>
 
       {/* Editor */}
       <div className="flex-1 relative">
         {isPreviewMode ? (
-          /* Mode prévisualisation avec rendu riche */
-          <div className="w-full h-full overflow-auto p-6">
-            <RichTextRenderer
-              content={content}
-              onTextSelect={handlePreviewTextSelect}
-              className="min-h-full"
-            />
-            {content.trim() === '' && (
-              <div className="text-gray-400 italic">
-                No content to display. Switch to edit mode to start writing.
-              </div>
-            )}
+          /* Mode prévisualisation GitHub-style */
+          <div className="absolute inset-0 overflow-y-auto overflow-x-hidden">
+            <div className="p-6 min-h-full">
+              <RichTextRenderer
+                content={content}
+                onTextSelect={handlePreviewTextSelect}
+                className=""
+              />
+              {content.trim() === '' && (
+                <div className="text-gray-400 italic">
+                  No content to display. Switch to edit mode to start writing.
+                </div>
+              )}
+            </div>
           </div>
         ) : (
-          /* Mode édition classique */
+          /* Mode édition GitHub-style */
           <textarea
             ref={contentRef}
             value={content}
@@ -330,14 +302,14 @@ export default function Editor({ page, onOpenAIModal }: EditorProps) {
             onKeyDown={handleKeyDown}
             onMouseUp={handleTextSelection}
             onSelect={handleTextSelection}
-            className="w-full h-full resize-none outline-none p-6 text-gray-900 leading-relaxed"
+            className="w-full h-full resize-none outline-none p-6 text-gray-900 leading-relaxed overflow-auto"
             placeholder="Start writing...
 
 Tips:
 • Type '/' to use AI
 • Select text to get explanations
 • Use Ctrl+S to save (auto-saves every second)
-• Click 👁️ Preview to see final render with styled citations"
+• Click 👁️ Preview to see GitHub-style markdown"
             style={{ fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace' }}
           />
         )}
@@ -358,18 +330,19 @@ Tips:
             </div>
           </div>
         )}
-
-        {/* Tooltip de sélection de texte */}
-        {showTooltip && tooltipData && (
-          <TextTooltip
-            position={tooltipData.position}
-            selectedText={tooltipData.selectedText}
-            onExplain={handleTooltipExplain}
-            onClose={handleCloseTooltip}
-          />
-        )}
       </div>
-
+      
+      {/* AI Sidebar at bottom */}
+      {!isPreviewMode && (
+        <div className="border-t border-gray-200">
+          <AISidebar
+            selectedText={selectedText}
+            apiKey={apiKey}
+            model={model}
+          />
+        </div>
+      )}
+      
       {/* Footer avec tips */}
       <div className="border-t border-gray-200 px-6 py-2 bg-gray-50">
         <div className="flex items-center justify-between text-xs text-gray-500">
@@ -377,14 +350,13 @@ Tips:
             {isPreviewMode ? (
               <>
                 <span>👁️ Preview mode active</span>
-                <span>✨ Select to generate citations</span>
-                <span>🔄 Hover on text to see links</span>
+                <span>📖 GitHub-style markdown viewer</span>
               </>
             ) : (
               <>
-                <span>� Tapez &quot;/&quot; pour l&apos;IA</span>
-                <span>✨ Sélectionnez pour expliquer</span>
-                <span>👁️ Cliquez aperçu pour le rendu final</span>
+                <span>📝 GitHub-style markdown editor</span>
+                <span>✨ Select text for AI explanations</span>
+                <span>👁️ Preview mode hides AI assistant</span>
               </>
             )}
           </div>

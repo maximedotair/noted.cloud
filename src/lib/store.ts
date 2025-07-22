@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import { DatabaseService } from './database';
+import { DEFAULT_MODEL_ID } from './openrouter';
 import type { Page, AppSettings } from './database';
 
 export interface NotesState {
@@ -63,7 +64,7 @@ export const useNotesStore = create<NotesStore>()(
     isLoading: false,
     settings: {
       openrouterApiKey: '',
-      defaultModel: 'anthropic/claude-3.5-sonnet',
+      defaultModel: 'DEFAULT_MODEL_ID',
       currentPageId: null
     },
     isConfigured: false,
@@ -130,7 +131,6 @@ export const useNotesStore = create<NotesStore>()(
       if (success) {
         const state = get();
         const newPages = { ...state.pages };
-        const pageToDelete = newPages[id];
         
         // Supprimer récursivement toutes les pages enfants
         const deleteRecursively = (pageId: string) => {
@@ -169,24 +169,48 @@ export const useNotesStore = create<NotesStore>()(
         const settings = await DatabaseService.getSettings();
         const currentPageId = await DatabaseService.getCurrentPageId();
         
-        set({ 
+        set({
           settings,
           currentPageId,
           isConfigured: Boolean(settings.openrouterApiKey)
         });
       } catch (error) {
         console.error('Erreur lors du chargement des paramètres:', error);
+        
+        // En cas d'erreur avec IndexedDB, utiliser des paramètres par défaut
+        set({
+          settings: {
+            openrouterApiKey: '',
+            defaultModel: 'DEFAULT_MODEL_ID',
+            currentPageId: null,
+            customModels: []
+          },
+          isConfigured: false
+        });
       }
     },
 
     updateSettings: async (updates: Partial<AppSettings>) => {
-      await DatabaseService.updateSettings(updates);
-      const newSettings = await DatabaseService.getSettings();
-      
-      set({ 
-        settings: newSettings,
-        isConfigured: Boolean(newSettings.openrouterApiKey)
-      });
+      try {
+        await DatabaseService.updateSettings(updates);
+        const newSettings = await DatabaseService.getSettings();
+        
+        set({
+          settings: newSettings,
+          isConfigured: Boolean(newSettings.openrouterApiKey)
+        });
+      } catch (error) {
+        console.error('Erreur lors de la mise à jour des paramètres:', error);
+        
+        // En cas d'erreur avec IndexedDB, mettre à jour l'état local seulement
+        const currentSettings = get().settings;
+        const newSettings = { ...currentSettings, ...updates };
+        
+        set({
+          settings: newSettings,
+          isConfigured: Boolean(newSettings.openrouterApiKey)
+        });
+      }
     },
 
     // Actions de l'interface
@@ -249,7 +273,7 @@ export const useNotesStore = create<NotesStore>()(
         currentPageId: null,
         settings: {
           openrouterApiKey: '',
-          defaultModel: 'anthropic/claude-3.5-sonnet',
+          defaultModel: 'DEFAULT_MODEL_ID',
           currentPageId: null
         },
         isConfigured: false,
@@ -269,7 +293,7 @@ export const useCurrentPage = () => useNotesStore((state) =>
 
 export const useRootPages = () => useNotesStore((state) => state.pages);
 
-export const usePageChildren = (parentId: string) => useNotesStore((state) => state.pages);
+export const usePageChildren = () => useNotesStore((state) => state.pages);
 
 export const useIsConfigured = () => useNotesStore((state) => state.isConfigured);
 export const useSettings = () => useNotesStore((state) => state.settings);

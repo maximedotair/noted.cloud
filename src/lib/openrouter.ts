@@ -1,5 +1,7 @@
 import { OpenRouterModel, AIResponse } from '@/types';
 
+export const DEFAULT_MODEL_ID = 'anthropic/claude-sonnet-4';
+
 export class OpenRouterAPI {
   private apiKey: string;
   private baseUrl: string = 'https://openrouter.ai/api/v1';
@@ -24,16 +26,31 @@ export class OpenRouterAPI {
       const data = await response.json();
       return data.data || [];
     } catch (error) {
-      console.error('Erreur lors de la récupération des modèles:', error);
+      console.error('Error fetching models:', error);
       throw error;
     }
   }
 
   async generateCompletion(
     prompt: string,
-    model: string = 'openai/gpt-3.5-turbo',
+    model: string = DEFAULT_MODEL_ID,
     systemPrompt?: string
   ): Promise<AIResponse> {
+    // Debug logging
+    console.log('OpenRouterAPI - generateCompletion called');
+    console.log('API Key length:', this.apiKey ? this.apiKey.length : 0);
+    console.log('API Key starts with:', this.apiKey ? this.apiKey.slice(0, 15) : 'MISSING');
+    console.log('API Key format valid:', this.apiKey && this.apiKey.startsWith('sk-or-'));
+    console.log('Model:', model);
+
+    if (!this.apiKey || !this.apiKey.trim()) {
+      throw new Error('No auth credentials found - API key is missing or empty');
+    }
+    
+    if (!this.apiKey.startsWith('sk-or-')) {
+      console.warn('API Key format might be invalid - should start with "sk-or-"');
+    }
+
     try {
       const messages = [];
       
@@ -49,28 +66,55 @@ export class OpenRouterAPI {
         content: prompt
       });
 
+      const requestBody = {
+        model,
+        messages,
+        temperature: 0.7,
+        max_tokens: 2000,
+      };
+
+      console.log('=== OpenRouter API Request ===');
+      console.log('URL:', `${this.baseUrl}/chat/completions`);
+      console.log('Method: POST');
+      console.log('Headers:', {
+        'Authorization': `Bearer ${this.apiKey.slice(0, 15)}...`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': typeof window !== 'undefined' ? window.location.href : 'http://localhost:3000',
+        'X-Title': 'OpenRouter Notes',
+        'Origin': typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'
+      });
+      console.log('Body:', JSON.stringify(requestBody, null, 2));
+      console.log('==============================');
+
       const response = await fetch(`${this.baseUrl}/chat/completions`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${this.apiKey}`,
           'Content-Type': 'application/json',
-          'HTTP-Referer': typeof window !== 'undefined' ? window.location.origin : '',
-          'X-Title': 'OpenRouter Notes'
+          'HTTP-Referer': typeof window !== 'undefined' ? window.location.href : 'http://localhost:3000',
+          'X-Title': 'OpenRouter Notes',
+          'Origin': typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'
         },
-        body: JSON.stringify({
-          model,
-          messages,
-          temperature: 0.7,
-          max_tokens: 2000,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
+      console.log('Response status:', response.status);
+      console.log('Response headers:', response.headers);
+
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { error: { message: errorText } };
+        }
         throw new Error(errorData.error?.message || `Erreur API: ${response.status}`);
       }
 
       const data = await response.json();
+      console.log('Success response:', data);
       
       return {
         content: data.choices[0]?.message?.content || '',
@@ -83,21 +127,71 @@ export class OpenRouterAPI {
     }
   }
 
+  private detectLanguage(text: string): string {
+    // Simple language detection based on common patterns
+    const frenchPatterns = /\b(le|la|les|de|des|un|une|et|est|sont|pour|dans|ce|cette|que|qui|quoi|où|quand|comment|pourquoi|avec|sans|sur|sous|par|tout|tous|toutes|plus|moins|très|bien|mal|oui|non|merci|bonjour|au revoir|excusez|pardon|s'il vous plaît)\b/i;
+    const englishPatterns = /\b(the|a|an|and|is|are|for|in|this|that|what|where|when|how|why|with|without|on|under|by|all|more|less|very|good|bad|yes|no|thank|hello|goodbye|please|sorry)\b/i;
+    const spanishPatterns = /\b(el|la|los|las|un|una|unos|unas|y|es|son|para|en|este|esta|eso|eso|qué|dónde|cuándo|cómo|por qué|con|sin|sobre|bajo|por|todo|más|menos|muy|bien|mal|sí|no|gracias|hola|adiós|por favor|lo siento)\b/i;
+    
+    const textLower = text.toLowerCase();
+    
+    if (frenchPatterns.test(textLower)) return 'fr';
+    if (spanishPatterns.test(textLower)) return 'es';
+    if (englishPatterns.test(textLower)) return 'en';
+    
+    // Default to English if no clear pattern detected
+    return 'en';
+  }
+
+  private getSystemPromptForLanguage(language: string, basePrompt: string): string {
+    const prompts = {
+      en: basePrompt,
+      fr: basePrompt
+        .replace(/You are an AI assistant/g, 'Tu es un assistant IA')
+        .replace(/Your role is to/g, 'Ton rôle est de')
+        .replace(/Be precise/g, 'Sois précis')
+        .replace(/Be informative/g, 'Sois informatif')
+        .replace(/Be helpful/g, 'Sois utile')
+        .replace(/Adapt your explanation/g, 'Adapte ton explication')
+        .replace(/Respond directly/g, 'Réponds de manière directe')
+        .replace(/Format your response/g, 'Formate ta réponse'),
+      es: basePrompt
+        .replace(/You are an AI assistant/g, 'Eres un asistente IA')
+        .replace(/Your role is to/g, 'Tu papel es')
+        .replace(/Be precise/g, 'Sé preciso')
+        .replace(/Be informative/g, 'Sé informativo')
+        .replace(/Be helpful/g, 'Sé útil')
+        .replace(/Adapt your explanation/g, 'Adapta tu explicación')
+        .replace(/Respond directly/g, 'Responde directamente')
+        .replace(/Format your response/g, 'Formatea tu respuesta')
+    };
+    
+    return prompts[language as keyof typeof prompts] || prompts.en;
+  }
+
   async explainSelection(
     selectedText: string,
     context: string,
-    model: string = 'openai/gpt-3.5-turbo'
+    model: string = DEFAULT_MODEL_ID,
+    defaultLanguage: string = 'en'
   ): Promise<AIResponse> {
-    const systemPrompt = `Tu es un assistant IA spécialisé dans l'explication de concepts. 
-Ton rôle est d'expliquer clairement et de manière concise le texte sélectionné par l'utilisateur.
-Adapte ton niveau d'explication au contexte fourni.
-Sois précis, informatif et utile.`;
+    const detectedLanguage = this.detectLanguage(context + ' ' + selectedText);
+    const language = detectedLanguage !== 'en' ? detectedLanguage : defaultLanguage;
+    
+    const baseSystemPrompt = `You are an AI assistant specialized in explaining concepts.
+Your role is to clearly and concisely explain the text selected by the user.
+Adapt your level of explanation to the provided context.
+Be precise, informative, and helpful.`;
 
-    const prompt = `Contexte de la page: ${context}
+    const systemPrompt = this.getSystemPromptForLanguage(language, baseSystemPrompt);
 
-Texte sélectionné à expliquer: "${selectedText}"
+    const prompts = {
+      en: `Page context: ${context}\n\nSelected text to explain: "${selectedText}"\n\nCan you explain this text clearly and concisely?`,
+      fr: `Contexte de la page: ${context}\n\nTexte sélectionné à expliquer: "${selectedText}"\n\nPeux-tu expliquer ce texte de manière claire et concise ?`,
+      es: `Contexto de la página: ${context}\n\nTexto seleccionado para explicar: "${selectedText}"\n\n¿Puedes explicar este texto de manera clara y concisa?`
+    };
 
-Peux-tu expliquer ce texte de manière claire et concise ?`;
+    const prompt = prompts[language as keyof typeof prompts] || prompts.en;
 
     return this.generateCompletion(prompt, model, systemPrompt);
   }
@@ -105,18 +199,26 @@ Peux-tu expliquer ce texte de manière claire et concise ?`;
   async processSlashCommand(
     command: string,
     context: string,
-    model: string = 'openai/gpt-3.5-turbo'
+    model: string = DEFAULT_MODEL_ID,
+    defaultLanguage: string = 'en'
   ): Promise<AIResponse> {
-    const systemPrompt = `Tu es un assistant IA pour une application de prise de notes similaire à Notion.
-L'utilisateur peut taper "/" suivi d'une commande pour obtenir de l'aide.
-Réponds de manière directe et utile selon le contexte de la page.
-Formate ta réponse en markdown si approprié.`;
+    const detectedLanguage = this.detectLanguage(context + ' ' + command);
+    const language = detectedLanguage !== 'en' ? detectedLanguage : defaultLanguage;
+    
+    const baseSystemPrompt = `You are an AI assistant for a note-taking application similar to Notion.
+The user can type "/" followed by a command to get help.
+Respond directly and usefully according to the page context.
+Format your response in markdown if appropriate.`;
 
-    const prompt = `Contexte de la page: ${context}
+    const systemPrompt = this.getSystemPromptForLanguage(language, baseSystemPrompt);
 
-Commande de l'utilisateur: ${command}
+    const prompts = {
+      en: `Page context: ${context}\n\nUser command: ${command}\n\nCan you respond to this request?`,
+      fr: `Contexte de la page: ${context}\n\nCommande de l'utilisateur: ${command}\n\nPeux-tu répondre à cette demande ?`,
+      es: `Contexto de la página: ${context}\n\nComando del usuario: ${command}\n\n¿Puedes responder a esta solicitud?`
+    };
 
-Peux-tu répondre à cette demande ?`;
+    const prompt = prompts[language as keyof typeof prompts] || prompts.en;
 
     return this.generateCompletion(prompt, model, systemPrompt);
   }
@@ -125,7 +227,7 @@ Peux-tu répondre à cette demande ?`;
 // Modèles populaires par défaut
 export const DEFAULT_MODELS = [
   {
-    id: 'anthropic/claude-4-sonnet',
+    id: 'DEFAULT_MODEL_ID',
     name: 'Claude 4 Sonnet',
     description: 'Modèle performant d\'Anthropic',
     context_length: 200000,
@@ -133,9 +235,9 @@ export const DEFAULT_MODELS = [
   },
   {
     id: 'moonshotai/kimi-k2',
-    name: 'Kimi (Moonshot) 128K',
-    description: 'Modèle Kimi avec contexte étendu',
-    context_length: 128000,
+    name: 'Kimi k2',
+    description: 'Kimi k2',
+    context_length: 63000,
     pricing: { prompt: '0.0012', completion: '0.0012' }
   }
 ] as OpenRouterModel[];

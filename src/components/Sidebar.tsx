@@ -22,7 +22,6 @@ export default function Sidebar({ onCreatePage }: SidebarProps) {
   
   const allPages = useRootPages();
   const settings = useSettings();
-  const [showSettings, setShowSettings] = useState(false);
 
   // Extraire les pages racines depuis l'objet pages
   const rootPages = Object.values(allPages)
@@ -31,7 +30,7 @@ export default function Sidebar({ onCreatePage }: SidebarProps) {
 
   const handleCreateSubPage = async (parentId: string) => {
     const parentPage = pages[parentId];
-    const newPage = await createPage(`Sub-page of ${parentPage?.title || 'Page'}`, parentId);
+    await createPage(`Sub-page of ${parentPage?.title || 'Page'}`, parentId);
     // L'expansion de la page parent et la sélection de la nouvelle page sont gérées dans le store
   };
 
@@ -132,28 +131,10 @@ export default function Sidebar({ onCreatePage }: SidebarProps) {
       <div className="p-4 border-b border-gray-200">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-lg font-semibold text-gray-900">OpenRouter Notes</h1>
-          <button
-            onClick={() => setShowSettings(!showSettings)}
-            className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 rounded"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-          </button>
+        
         </div>
         
-        {showSettings && (
-          <div className="mb-4 p-3 bg-gray-50 rounded-lg text-xs">
-            <p className="text-gray-600 mb-2">Model: {settings.defaultModel}</p>
-            <button
-              onClick={() => updateSettings({ openrouterApiKey: '' })}
-              className="text-red-600 hover:underline"
-            >
-              Reset configuration
-            </button>
-          </div>
-        )}
+        
         
         <button
           onClick={onCreatePage}

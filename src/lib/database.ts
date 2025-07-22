@@ -1,4 +1,5 @@
 import Dexie, { Table } from 'dexie';
+import { DEFAULT_MODEL_ID } from './openrouter';
 
 export interface Page {
   id: string;
@@ -16,6 +17,8 @@ export interface AppSettings {
   defaultModel: string;
   currentPageId?: string | null;
   customModels?: string[]; // Liste des modèles personnalisés ajoutés
+  aiAssistantEnabled?: boolean; // Activer/désactiver l'assistant AI
+  defaultLanguage?: string; // Langue par défaut pour les prompts AI (ISO 639-1)
 }
 
 export class NotesDatabase extends Dexie {
@@ -127,9 +130,11 @@ export class DatabaseService {
     const settings = await db.settings.orderBy('id').first();
     return settings || {
       openrouterApiKey: '',
-      defaultModel: 'anthropic/claude-3.5-sonnet',
+      defaultModel: 'DEFAULT_MODEL_ID',
       currentPageId: null,
-      customModels: []
+      customModels: [],
+      aiAssistantEnabled: true,
+      defaultLanguage: 'en'
     };
   }
 
