@@ -127,44 +127,8 @@ export class OpenRouterAPI {
     }
   }
 
-  private detectLanguage(text: string): string {
-    // Simple language detection based on common patterns
-    const frenchPatterns = /\b(le|la|les|de|des|un|une|et|est|sont|pour|dans|ce|cette|que|qui|quoi|où|quand|comment|pourquoi|avec|sans|sur|sous|par|tout|tous|toutes|plus|moins|très|bien|mal|oui|non|merci|bonjour|au revoir|excusez|pardon|s'il vous plaît|voici|cela|ceci|avoir|être|avoir|faire|aller|venir|voir|savoir|pouvoir|vouloir|devoir)\b/i;
-    const englishPatterns = /\b(the|a|an|and|is|are|for|in|this|that|what|where|when|how|why|with|without|on|under|by|all|more|less|very|good|bad|yes|no|thank|hello|goodbye|please|sorry|have|has|had|do|does|did|will|would|could|should|can|may|might|must)\b/i;
-    const spanishPatterns = /\b(el|la|los|las|un|una|unos|unas|y|es|son|para|en|este|esta|eso|eso|qué|dónde|cuándo|cómo|por qué|con|sin|sobre|bajo|por|todo|más|menos|muy|bien|mal|sí|no|gracias|hola|adiós|por favor|lo siento|tener|ser|estar|hacer|ir|venir|ver|saber|poder|querer|deber)\b/i;
-    
-    const textLower = text.toLowerCase();
-    
-    // Count matches for each language
-    const frenchMatches = (textLower.match(frenchPatterns) || []).length;
-    const englishMatches = (textLower.match(englishPatterns) || []).length;
-    const spanishMatches = (textLower.match(spanishPatterns) || []).length;
-    
-    // Return the language with most matches
-    if (frenchMatches > englishMatches && frenchMatches > spanishMatches) return 'fr';
-    if (spanishMatches > englishMatches && spanishMatches > frenchMatches) return 'es';
-    if (englishMatches > 0) return 'en';
-    
-    // Default to English if no clear pattern detected
-    return 'en';
-  }
-
   private getSystemPromptForLanguage(language: string, basePrompt: string): string {
-    const prompts = {
-      en: basePrompt,
-      fr: `Tu es un assistant IA spécialisé dans l'explication de concepts.
-Ton rôle est d'expliquer clairement et concisément le texte sélectionné par l'utilisateur.
-Adapte ton niveau d'explication au contexte fourni.
-Sois précis, informatif et utile.
-Réponds toujours en français.`,
-      es: `Eres un asistente IA especializado en explicar conceptos.
-Tu papel es explicar clara y concisamente el texto seleccionado por el usuario.
-Adapta tu nivel de explicación al contexto proporcionado.
-Sé preciso, informativo y útil.
-Responde siempre en español.`
-    };
-    
-    return prompts[language as keyof typeof prompts] || prompts.en;
+    return `${basePrompt}\n\nIMPORTANT: You must respond in the language corresponding to the following ISO 639-1 code: ${language}.`;
   }
 
   async explainSelection(
@@ -179,22 +143,17 @@ Responde siempre en español.`
     console.log('Context:', context);
     console.log('Selected text:', selectedText);
     console.log('Using default language:', language);
-    console.log('System prompt language:', this.getSystemPromptForLanguage(language, 'test'));
     
-    const baseSystemPrompt = `You are an AI assistant specialized in explaining concepts.
-Your role is to clearly and concisely explain the text selected by the user.
-Adapt your level of explanation to the provided context.
-Be precise, informative, and helpful.`;
+    const baseSystemPrompt = `You are an AI assistant specialized in explaining concepts. Your primary task is to explain the user's selected text.
+The provided page context should *only* be used to understand the topic better, but you must not mention the context in your answer.
+Your explanation must focus exclusively on the selected text.
+Provide a direct and concise explanation. Do not start your answer with "In the context of..." or "The selected text...".
+For example, if the selected text is "Eminem", and the context is an article about "50 Cent", your response should start directly with "Eminem is an American rapper..." and not "In this article about 50 Cent, Eminem is...".`;
 
     const systemPrompt = this.getSystemPromptForLanguage(language, baseSystemPrompt);
+    console.log('System prompt:', systemPrompt);
 
-    const prompts = {
-      en: `Page context: ${context}\n\nSelected text to explain: "${selectedText}"\n\nCan you explain this text clearly and concisely?`,
-      fr: `Contexte de la page: ${context}\n\nTexte sélectionné à expliquer: "${selectedText}"\n\nPeux-tu expliquer ce texte de manière claire et concise ?`,
-      es: `Contexto de la página: ${context}\n\nTexto seleccionado para explicar: "${selectedText}"\n\n¿Puedes explicar este texto de manera clara y concisa?`
-    };
-
-    const prompt = prompts[language as keyof typeof prompts] || prompts.en;
+    const prompt = `Page context: """${context}"""\n\nText to explain: """${selectedText}"""\n\nPlease provide a clear and concise explanation of the "Text to explain".`;
 
     return this.generateCompletion(prompt, model, systemPrompt);
   }
@@ -214,13 +173,7 @@ Format your response in markdown if appropriate.`;
 
     const systemPrompt = this.getSystemPromptForLanguage(language, baseSystemPrompt);
 
-    const prompts = {
-      en: `Page context: ${context}\n\nUser command: ${command}\n\nCan you respond to this request?`,
-      fr: `Contexte de la page: ${context}\n\nCommande de l'utilisateur: ${command}\n\nPeux-tu répondre à cette demande ?`,
-      es: `Contexto de la página: ${context}\n\nComando del usuario: ${command}\n\n¿Puedes responder a esta solicitud?`
-    };
-
-    const prompt = prompts[language as keyof typeof prompts] || prompts.en;
+    const prompt = `Page context: """${context}"""\n\nUser command: """${command}"""\n\nPlease respond to this command.`;
 
     return this.generateCompletion(prompt, model, systemPrompt);
   }
