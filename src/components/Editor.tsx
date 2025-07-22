@@ -5,6 +5,7 @@ import { useNotesStore } from '@/lib/store';
 import type { Page } from '@/lib/database';
 import RichTextRenderer from './RichTextRenderer';
 import AISidebar from './AISidebar';
+import ShareModal from './ShareModal';
 
 interface EditorProps {
   page: Page;
@@ -22,17 +23,20 @@ export default function Editor({ page, onOpenAIModal, apiKey, model }: EditorPro
   const { updatePage, settings, updateSettings } = useNotesStore();
   const [title, setTitle] = useState(page.title);
   const [content, setContent] = useState(page.content);
+  const [titleManuallyEdited, setTitleManuallyEdited] = useState(false);
   const [isTypingSlash, setIsTypingSlash] = useState(false);
   const [slashCommand, setSlashCommand] = useState('');
   const [slashPosition, setSlashPosition] = useState({ x: 0, y: 0 });
-  const [selectedText, setSelectedText] = useState<string | null>(null);
+  const [selectionContext, setSelectionContext] = useState<{ text: string; start: number; end: number } | null>(null);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const contentRef = useRef<HTMLTextAreaElement>(null);
 
   // Synchronize states with active page (only when page changes)
   useEffect(() => {
     setTitle(page.title);
     setContent(page.content);
+    setTitleManuallyEdited(page.title !== 'New page');
   }, [page.id, page.title, page.content]);
 
   // Auto-save (only if local states differ from page)
@@ -46,11 +50,32 @@ export default function Editor({ page, onOpenAIModal, apiKey, model }: EditorPro
     return () => clearTimeout(timeoutId);
   }, [title, content, page.id, page.title, page.content, updatePage]);
 
+  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newTitle = e.target.value;
+    setTitle(newTitle);
+    setTitleManuallyEdited(newTitle.trim() !== '');
+  };
+
   const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newContent = e.target.value;
     const cursorPosition = e.target.selectionStart;
     
     setContent(newContent);
+
+    if (!titleManuallyEdited) {
+      const firstLine = newContent.trim().split('\n')[0];
+      if (firstLine) {
+        const newTitle = firstLine.length > 50 ? firstLine.substring(0, 50) + '...' : firstLine;
+        setTitle(newTitle);
+      } else {
+        setTitle('New page');
+      }
+    }
+
+    // Si la sélection est annulée (curseur simple), réinitialiser l'assistant
+    if (e.target.selectionStart === e.target.selectionEnd) {
+      setSelectionContext(null);
+    }
 
     // Detect "/" input
     if (newContent[cursorPosition - 1] === '/') {
@@ -147,12 +172,12 @@ export default function Editor({ page, onOpenAIModal, apiKey, model }: EditorPro
         
         // Allow selection everywhere except in incomplete markers
         if (!isInMarker && !hasCompleteMarker) {
-          setSelectedText(text.trim());
+          setSelectionContext({ text: text.trim(), start: textarea.selectionStart, end: textarea.selectionEnd });
         } else {
-          setSelectedText(null);
+          setSelectionContext(null);
         }
       } else {
-        setSelectedText(null);
+        setSelectionContext(null);
       }
     }
   };
@@ -198,7 +223,8 @@ export default function Editor({ page, onOpenAIModal, apiKey, model }: EditorPro
   }, [content]);
 
   const handlePreviewTextSelect = (text: string) => {
-    setSelectedText(text.trim());
+    // This is a simplified selection from preview, no context needed for now
+    setSelectionContext({ text: text.trim(), start: 0, end: 0 });
   };
 
   // Exposer la fonction d'insertion pour le parent
@@ -234,7 +260,7 @@ export default function Editor({ page, onOpenAIModal, apiKey, model }: EditorPro
             <input
               type="text"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={handleTitleChange}
               className="text-2xl font-bold text-gray-900 bg-transparent border-none outline-none w-full placeholder-gray-400"
               placeholder="Page title..."
             />
@@ -244,6 +270,12 @@ export default function Editor({ page, onOpenAIModal, apiKey, model }: EditorPro
           </div>
           {/* Bouton de basculement mode */}
           <div className="flex items-center gap-2 ml-4">
+            <button
+              onClick={() => setIsShareModalOpen(true)}
+              className="px-3 py-1 rounded-lg text-sm font-medium transition-all bg-gray-100 text-gray-700 border border-gray-200 hover:bg-gray-200"
+            >
+              🔗 Share
+            </button>
             <button
               onClick={() => setIsPreviewMode(!isPreviewMode)}
               className={`
@@ -336,11 +368,20 @@ Tips:
       {!isPreviewMode && (
         <div className="border-t border-gray-200">
           <AISidebar
-            selectedText={selectedText}
+            selectionContext={selectionContext}
+            fullContent={content}
             apiKey={apiKey}
             model={model}
           />
         </div>
+      )}
+
+      {/* Share Modal */}
+      {isShareModalOpen && (
+        <ShareModal
+          page={page}
+          onClose={() => setIsShareModalOpen(false)}
+        />
       )}
       
       {/* Footer avec tips */}

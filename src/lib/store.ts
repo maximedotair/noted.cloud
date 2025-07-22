@@ -57,7 +57,7 @@ export interface NotesActions {
 type NotesStore = NotesState & NotesActions;
 
 export const useNotesStore = create<NotesStore>()(
-  subscribeWithSelector((set, get) => ({
+  subscribeWithSelector<NotesStore>((set, get) => ({
     // État initial
     pages: {},
     currentPageId: null,

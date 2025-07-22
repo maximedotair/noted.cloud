@@ -8,12 +8,13 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { tomorrow } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 interface AISidebarProps {
-  selectedText: string | null;
+  selectionContext: { text: string; start: number; end: number } | null;
+  fullContent: string;
   apiKey: string;
   model: string;
 }
 
-export default function AISidebar({ selectedText, apiKey, model }: AISidebarProps) {
+export default function AISidebar({ selectionContext, fullContent, apiKey, model }: AISidebarProps) {
   const [loading, setLoading] = useState(false);
   const [response, setResponse] = useState('');
   const [error, setError] = useState('');
@@ -24,13 +25,21 @@ export default function AISidebar({ selectedText, apiKey, model }: AISidebarProp
   const { updateSettings, settings } = useNotesStore();
 
   const generateExplanation = useCallback(async () => {
-    if (!selectedText || !settings.aiAssistantEnabled) return;
+    if (!selectionContext || !settings.aiAssistantEnabled) return;
+
+    // Limiter la sélection à 10 mots
+    const wordCount = selectionContext.text.trim().split(/\s+/).length;
+    if (wordCount > 10) {
+      setError('Please select 10 words or less for the AI assistant.');
+      setResponse('');
+      return;
+    }
 
     // Debug logging
     console.log('AISidebar - generateExplanation called');
     console.log('API Key:', apiKey ? `${apiKey.slice(0, 10)}...` : 'MISSING');
     console.log('Model:', model);
-    console.log('Selected text:', selectedText);
+    console.log('Selected text:', selectionContext.text);
     console.log('AI Assistant Enabled:', settings.aiAssistantEnabled);
     console.log('Default Language:', settings.defaultLanguage);
 
@@ -45,9 +54,27 @@ export default function AISidebar({ selectedText, apiKey, model }: AISidebarProp
 
     try {
       const api = new OpenRouterAPI(apiKey);
+      
+      // Construire le contexte
+      const selectedModelInfo = DEFAULT_MODELS.find(m => m.id === model) || { context_length: 4096 };
+      const maxContext = selectedModelInfo.context_length;
+      
+      let contextText = selectionContext.text;
+      const remainingChars = maxContext - contextText.length;
+      
+      if (remainingChars > 0 && selectionContext.start > 0) {
+        const charsBefore = Math.floor(remainingChars / 2);
+        const charsAfter = remainingChars - charsBefore;
+        
+        const textBefore = fullContent.substring(Math.max(0, selectionContext.start - charsBefore), selectionContext.start);
+        const textAfter = fullContent.substring(selectionContext.end, Math.min(fullContent.length, selectionContext.end + charsAfter));
+        
+        contextText = `${textBefore}>>${selectionContext.text}<<${textAfter}`;
+      }
+      
       const result = await api.explainSelection(
-        selectedText,
-        'User is taking notes and wants explanation of selected text',
+        contextText,
+        'User is taking notes and wants an explanation of the selected text (marked with >>...<<). Focus on the marked text.',
         model,
         settings.defaultLanguage
       );
@@ -64,17 +91,17 @@ export default function AISidebar({ selectedText, apiKey, model }: AISidebarProp
     } finally {
       setLoading(false);
     }
-  }, [selectedText, apiKey, model, settings.aiAssistantEnabled, settings.defaultLanguage]);
+  }, [selectionContext, fullContent, apiKey, model, settings.aiAssistantEnabled, settings.defaultLanguage]);
 
   useEffect(() => {
-    if (selectedText && selectedText.trim() && settings.aiAssistantEnabled) {
+    if (selectionContext && selectionContext.text.trim() && settings.aiAssistantEnabled) {
       generateExplanation();
     } else {
       setResponse('');
       setError('');
       setCurrentModel('');
     }
-  }, [selectedText, generateExplanation, settings.aiAssistantEnabled]);
+  }, [selectionContext, generateExplanation, settings.aiAssistantEnabled]);
 
   useEffect(() => {
     setCurrentModel(model);
@@ -144,12 +171,27 @@ export default function AISidebar({ selectedText, apiKey, model }: AISidebarProp
   ];
 
   return (
-    <div className="w-full bg-gray-50 flex flex-col max-h-60">
+    <div className="w-full bg-gray-50 flex flex-col h-96 max-h-[600px]">
       {/* Header */}
       <div className="px-4 py-2 border-b border-gray-200 bg-white flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-gray-900">
-          AI Assistant
-        </h3>
+        <div className="flex items-center gap-2">
+          <h3 className="text-sm font-semibold text-gray-900">
+            AI Assistant
+          </h3>
+          <button
+            onClick={() => handleToggleAIAssistant(!settings.aiAssistantEnabled)}
+            className={`
+              px-2 py-0.5 rounded text-xs font-medium transition-all
+              ${settings.aiAssistantEnabled
+                ? 'bg-green-100 text-green-700 border border-green-200'
+                : 'bg-red-100 text-red-700 border border-red-200'
+              }
+            `}
+            title={settings.aiAssistantEnabled ? 'Disable AI Assistant' : 'Enable AI Assistant'}
+          >
+            {settings.aiAssistantEnabled ? 'ON' : 'OFF'}
+          </button>
+        </div>
         <button
           onClick={() => setShowSettings(!showSettings)}
           className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
@@ -167,7 +209,50 @@ export default function AISidebar({ selectedText, apiKey, model }: AISidebarProp
         <div className="border-b border-gray-200 bg-white p-4 space-y-3">
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-2">
-              Modèle par défaut
+              OpenRouter API Key
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="password"
+                value={apiKeyInput}
+                onChange={(e) => setApiKeyInput(e.target.value)}
+                placeholder="sk-or-xxxxxxxxxxxxxxxx"
+                className="flex-1 text-xs border border-gray-300 rounded-md px-2 py-1.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+              <button
+                onClick={handleApiKeyChange}
+                disabled={!apiKeyInput.trim()}
+                className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+              >
+                Update
+              </button>
+            </div>
+            {apiKey && (
+              <p className="text-xs text-gray-500 mt-1">
+                Current: {apiKey.slice(0, 8)}...
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-2">
+              Default Language
+            </label>
+            <input
+              type="text"
+              value={settings.defaultLanguage || 'en'}
+              onChange={(e) => updateSettings({ defaultLanguage: e.target.value })}
+              placeholder="en, fr, es"
+              className="w-full text-xs border border-gray-300 rounded-md px-2 py-1.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              ISO 639-1 code (en, fr, es, etc.)
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-2">
+              Default Model
             </label>
             <select
               value={model}
@@ -184,7 +269,7 @@ export default function AISidebar({ selectedText, apiKey, model }: AISidebarProp
           
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-2">
-              Ajouter un modèle personnalisé
+              Add Custom Model
             </label>
             <div className="flex gap-2">
               <input
@@ -199,7 +284,7 @@ export default function AISidebar({ selectedText, apiKey, model }: AISidebarProp
                 disabled={!customModel.trim()}
                 className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
               >
-                Ajouter
+                Add
               </button>
             </div>
           </div>
@@ -207,8 +292,8 @@ export default function AISidebar({ selectedText, apiKey, model }: AISidebarProp
       )}
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4 min-h-0">
-        {!selectedText && !loading && !response && (
+      <div className="flex-1 overflow-y-auto p-4 h-full">
+        {!selectionContext && !loading && !response && (
           <div className="text-center text-gray-500 py-4">
             <svg className="w-8 h-8 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -243,13 +328,25 @@ export default function AISidebar({ selectedText, apiKey, model }: AISidebarProp
                   {availableModels.find(m => m.id === currentModel)?.name || currentModel}
                 </span>
               </div>
-              <button
-                onClick={handleAddToNote}
-                className="px-3 py-1 text-xs bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                title="Add to note"
-              >
-                Add to note
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={generateExplanation}
+                  disabled={loading}
+                  className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Regenerate response"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h5M20 11A8.1 8.1 0 004.5 9.5M4 5.5A8.1 8.1 0 0019.5 14.5"></path>
+                  </svg>
+                </button>
+                <button
+                  onClick={handleAddToNote}
+                  className="px-3 py-1 text-xs bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                  title="Add to note"
+                >
+                  Add to note
+                </button>
+              </div>
             </div>
 
             {/* Response Content */}
@@ -283,10 +380,10 @@ export default function AISidebar({ selectedText, apiKey, model }: AISidebarProp
           </div>
         )}
 
-        {selectedText && !loading && !error && !response && (
+        {selectionContext && !loading && !error && !response && (
           <div className="text-sm text-gray-600 bg-blue-50 border border-blue-200 px-4 py-3 rounded-lg">
             <p className="font-medium mb-1">Texte sélectionné :</p>
-            <p className="italic">&ldquo;{selectedText}&rdquo;</p>
+            <p className="italic">&ldquo;{selectionContext.text}&rdquo;</p>
           </div>
         )}
       </div>

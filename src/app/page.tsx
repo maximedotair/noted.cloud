@@ -1,20 +1,24 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useIsConfigured } from '@/lib/store';
+import { useNotesStore, useIsConfigured } from '@/lib/store';
 import SetupForm from '@/components/SetupForm';
 import NotesApp from '@/components/NotesApp';
 
 export default function Home() {
   const isConfigured = useIsConfigured();
-  const [mounted, setMounted] = useState(false);
+  const initialize = useNotesStore((state) => state.initialize);
+  const [isInitializing, setIsInitializing] = useState(true);
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
+    const init = async () => {
+      await initialize();
+      setIsInitializing(false);
+    };
+    init();
+  }, [initialize]);
 
-  // Éviter les erreurs d'hydratation en attendant le montage
-  if (!mounted) {
+  if (isInitializing) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -25,11 +29,9 @@ export default function Home() {
     );
   }
 
-  // Si configuré via le store, afficher l'application
   if (isConfigured) {
     return <NotesApp />;
   }
 
-  // Sinon, afficher le formulaire de setup
   return <SetupForm />;
 }

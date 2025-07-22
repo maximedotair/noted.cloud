@@ -130,7 +130,7 @@ export default function Sidebar({ onCreatePage }: SidebarProps) {
       {/* Header */}
       <div className="p-4 border-b border-gray-200">
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-lg font-semibold text-gray-900">OpenRouter Notes</h1>
+          <h1 className="text-lg font-semibold text-gray-900">Noted.cloud</h1>
         
         </div>
         

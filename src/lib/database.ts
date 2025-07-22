@@ -9,6 +9,7 @@ export interface Page {
   children: string[];
   createdAt: Date;
   updatedAt: Date;
+  isPublic?: boolean;
 }
 
 export interface AppSettings {
@@ -31,6 +32,14 @@ export class NotesDatabase extends Dexie {
     this.version(1).stores({
       pages: 'id, title, parentId, createdAt, updatedAt',
       settings: '++id, openrouterApiKey, defaultModel, currentPageId'
+    });
+    
+    this.version(2).stores({
+      pages: 'id, title, parentId, createdAt, updatedAt, isPublic',
+    }).upgrade(tx => {
+      return tx.table('pages').toCollection().modify(page => {
+        page.isPublic = false;
+      });
     });
   }
 }
@@ -60,6 +69,7 @@ export class DatabaseService {
       children: [],
       createdAt: now,
       updatedAt: now,
+      isPublic: false,
     };
 
     await db.pages.add(newPage);

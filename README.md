@@ -1,4 +1,4 @@
-# 🚀 OpenRouter Notes
+# 🚀 Noted.cloud
 
 
 ## The Story Behind This Project

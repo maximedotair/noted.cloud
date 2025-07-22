@@ -7,7 +7,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "OpenRouter Notes",
+  title: "Noted.cloud",
   description: "Application de prise de notes ultra simplifiée avec IA",
 };
 

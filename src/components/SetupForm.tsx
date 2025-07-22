@@ -12,14 +12,15 @@ export default function SetupForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Charger les paramètres existants depuis le store au démarrage
+  // Charger les paramètres existants depuis le store au démarrage, une seule fois.
   useEffect(() => {
     if (settings.openrouterApiKey) {
       setApiKey(settings.openrouterApiKey);
       setSelectedModel(settings.defaultModel);
       setDefaultLanguage(settings.defaultLanguage || 'en');
     }
-  }, [settings]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,6 +50,7 @@ export default function SetupForm() {
       await updateSettings({
         openrouterApiKey: apiKey,
         defaultModel: selectedModel,
+        defaultLanguage: defaultLanguage,
       });
 
     } catch (err) {
@@ -79,7 +81,7 @@ export default function SetupForm() {
             </svg>
           </div>
           <h1 className="text-2xl font-bold text-gray-900 mb-2">
-            OpenRouter Notes
+            Noted.cloud
           </h1>
           <p className="text-gray-600">
             Configure your application to get started
