@@ -4,31 +4,69 @@
 
 /* Styles de base */
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-  overflow: hidden;
+    font-family:
+        -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
+        "Ubuntu", "Cantarell", sans-serif;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* Amélioration pour les appareils tactiles */
+@media (hover: none) and (pointer: coarse) {
+    /* Augmenter la taille des zones tactiles sur mobile */
+    button,
+    input[type="button"],
+    input[type="submit"],
+    .clickable {
+        min-height: 44px;
+        min-width: 44px;
+    }
+
+    /* Réduire les effets de hover sur tactile */
+    .hover\:bg-gray-100:hover {
+        background-color: inherit;
+    }
+
+    /* Améliorer la sélection de texte sur mobile */
+    textarea,
+    input[type="text"] {
+        -webkit-user-select: text;
+        user-select: text;
+    }
 }
 
 /* Scrollbar personnalisée */
 ::-webkit-scrollbar {
-  width: 6px;
+    width: 6px;
+    height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f1f1;
+    background: #f1f1f1;
+    border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
-  border-radius: 3px;
+    background: #c1c1c1;
+    border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
+    background: #a8a8a8;
+}
+
+/* Masquer la scrollbar sur mobile pour un look plus propre */
+@media (max-width: 768px) {
+    ::-webkit-scrollbar {
+        width: 3px;
+        height: 3px;
+    }
 }
 
 /* Animation pour les transitions */
 * {
-  transition: all 0.15s ease-in-out;
+    transition: all 0.15s ease-in-out;
 }
 
 /* Focus states améliorés */
@@ -36,52 +74,423 @@ button:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
-  outline: 2px solid #3b82f6;
-  outline-offset: 2px;
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+}
+
+/* États de focus spéciaux pour mobile */
+@media (max-width: 768px) {
+    button:focus,
+    input:focus,
+    textarea:focus {
+        outline: none;
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+    }
 }
 
 /* Loading animation */
 @keyframes pulse-subtle {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.7;
-  }
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
 }
 
 .pulse-subtle {
-  animation: pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    animation: pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
 /* Animation d'apparition pour les modaux */
 @keyframes modalIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes slideInFromLeft {
+    from {
+        transform: translateX(-100%);
+    }
+    to {
+        transform: translateX(0);
+    }
+}
+
+@keyframes slideOutToLeft {
+    from {
+        transform: translateX(0);
+    }
+    to {
+        transform: translateX(-100%);
+    }
 }
 
 .modal-content {
-  animation: modalIn 0.2s ease-out;
+    animation: modalIn 0.2s ease-out;
 }
 
-/* Styles responsive */
+.sidebar-enter {
+    animation: slideInFromLeft 0.3s ease-out;
+}
+
+.sidebar-exit {
+    animation: slideOutToLeft 0.3s ease-out;
+}
+
+/* Styles responsive pour la sidebar */
 @media (max-width: 768px) {
-  .sidebar {
+    .sidebar {
+        position: fixed;
+        left: -100%;
+        top: 0;
+        height: 100vh;
+        z-index: 50;
+        transition: left 0.3s ease-in-out;
+        box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .sidebar.open {
+        left: 0;
+    }
+
+    /* Améliorer l'expérience tactile */
+    .sidebar button {
+        min-height: 48px;
+        padding: 12px 16px;
+    }
+
+    .sidebar .page-item {
+        min-height: 48px;
+        padding: 12px 16px;
+    }
+}
+
+/* Amélioration de la sélection de texte */
+::selection {
+    background-color: rgba(59, 130, 246, 0.3);
+    color: inherit;
+}
+
+::-moz-selection {
+    background-color: rgba(59, 130, 246, 0.3);
+    color: inherit;
+}
+
+/* Styles pour les zones de sélection mobile */
+.mobile-selection-highlight {
+    background-color: rgba(59, 130, 246, 0.2);
+    border-radius: 4px;
+    padding: 2px 4px;
+    margin: -2px -4px;
+}
+
+/* Amélioration des textarea sur mobile */
+@media (max-width: 768px) {
+    textarea {
+        font-size: 16px; /* Empêche le zoom automatique sur iOS */
+        line-height: 1.6;
+        padding: 16px;
+    }
+
+    input[type="text"] {
+        font-size: 16px; /* Empêche le zoom automatique sur iOS */
+    }
+}
+
+/* Animation pour les boutons tactiles */
+@media (hover: none) and (pointer: coarse) {
+    button:active {
+        transform: scale(0.98);
+        transition: transform 0.1s ease;
+    }
+}
+
+/* Styles pour les menus contextuels mobiles */
+.mobile-context-menu {
     position: fixed;
-    left: -100%;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    min-width: 200px;
+    overflow: hidden;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.mobile-context-menu button {
+    width: 100%;
+    padding: 16px 20px;
+    text-align: left;
+    border: none;
+    background: white;
+    font-size: 16px;
+    color: #374151;
+    transition: background-color 0.15s ease;
+}
+
+.mobile-context-menu button:hover,
+.mobile-context-menu button:active {
+    background-color: #f3f4f6;
+}
+
+.mobile-context-menu button:first-child {
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+}
+
+.mobile-context-menu button:last-child {
+    border-bottom-left-radius: 12px;
+    border-bottom-right-radius: 12px;
+}
+
+/* Styles pour les notifications toast */
+.toast-notification {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1f2937;
+    color: white;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 14px;
+    z-index: 1000;
+    animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateX(-50%) translateY(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(-50%) translateY(0);
+        opacity: 1;
+    }
+}
+
+/* Amélioration de l'accessibilité */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* Styles pour les états de chargement */
+.loading-skeleton {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+/* Styles pour les indicateurs de frappe */
+.typing-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.typing-indicator span {
+    width: 6px;
+    height: 6px;
+    background-color: #9ca3af;
+    border-radius: 50%;
+    animation: typing 1.4s infinite ease-in-out;
+}
+
+.typing-indicator span:nth-child(1) {
+    animation-delay: -0.32s;
+}
+
+.typing-indicator span:nth-child(2) {
+    animation-delay: -0.16s;
+}
+
+@keyframes typing {
+    0%,
+    80%,
+    100% {
+        transform: scale(0.8);
+        opacity: 0.5;
+    }
+    40% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* Styles pour les badges et indicateurs */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1;
+}
+
+.badge-success {
+    background-color: #dcfce7;
+    color: #166534;
+}
+
+.badge-error {
+    background-color: #fef2f2;
+    color: #dc2626;
+}
+
+.badge-warning {
+    background-color: #fefce8;
+    color: #ca8a04;
+}
+
+.badge-info {
+    background-color: #dbeafe;
+    color: #1d4ed8;
+}
+
+/* Amélioration des performances sur mobile */
+@media (max-width: 768px) {
+    * {
+        -webkit-transform: translateZ(0);
+        transform: translateZ(0);
+        -webkit-backface-visibility: hidden;
+        backface-visibility: hidden;
+    }
+
+    /* Optimisation du rendu pour les listes longues */
+    .virtualized-list {
+        contain: layout style paint;
+    }
+}
+
+/* Styles pour les overlays et modaux responsives */
+@media (max-width: 768px) {
+    .modal-overlay {
+        padding: 16px;
+    }
+
+    .modal-content {
+        width: 100%;
+        max-width: none;
+        margin: 0;
+        border-radius: 16px 16px 0 0;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        transform: none;
+        animation: slideUpModal 0.3s ease-out;
+    }
+}
+
+@keyframes slideUpModal {
+    from {
+        transform: translateY(100%);
+    }
+    to {
+        transform: translateY(0);
+    }
+}
+
+/* Styles pour l'état offline */
+.offline-indicator {
+    position: fixed;
     top: 0;
-    height: 100vh;
-    z-index: 50;
-    transition: left 0.3s ease-in-out;
-  }
-  
-  .sidebar.open {
     left: 0;
-  }
+    right: 0;
+    background: #f59e0b;
+    color: white;
+    text-align: center;
+    padding: 8px;
+    font-size: 14px;
+    z-index: 9999;
+    transform: translateY(-100%);
+    transition: transform 0.3s ease;
+}
+
+.offline-indicator.show {
+    transform: translateY(0);
+}
+
+/* Styles pour les boutons flottants */
+.fab {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: #3b82f6;
+    color: white;
+    border: none;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    z-index: 100;
+    transition: all 0.3s ease;
+}
+
+.fab:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 16px rgba(59, 130, 246, 0.5);
+}
+
+.fab:active {
+    transform: scale(0.95);
+}
+
+/* Styles pour les swipe gestures */
+.swipe-container {
+    touch-action: pan-y;
+    overflow-x: hidden;
+}
+
+.swipe-item {
+    transform: translateX(0);
+    transition: transform 0.3s ease;
+}
+
+.swipe-item.swiping {
+    transition: none;
+}
+
+.swipe-actions {
+    position: absolute;
+    top: 0;
+    right: 0;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    background: #ef4444;
+    color: white;
+    padding: 0 20px;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+}
+
+.swipe-item.revealed .swipe-actions {
+    transform: translateX(0);
 }

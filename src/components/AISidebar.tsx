@@ -1,27 +1,34 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useCallback } from 'react';
-import { OpenRouterAPI, DEFAULT_MODELS } from '@/lib/openrouter';
-import { useNotesStore } from '@/lib/store';
-import ReactMarkdown from 'react-markdown';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { tomorrow } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { useState, useEffect, useCallback } from "react";
+import { OpenRouterAPI, DEFAULT_MODELS } from "@/lib/openrouter";
+import { useNotesStore } from "@/lib/store";
+import ReactMarkdown from "react-markdown";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { tomorrow } from "react-syntax-highlighter/dist/esm/styles/prism";
 
 interface AISidebarProps {
   selectionContext: { text: string; start: number; end: number } | null;
   fullContent: string;
   apiKey: string;
   model: string;
+  isMobile?: boolean;
 }
 
-export default function AISidebar({ selectionContext, fullContent, apiKey, model }: AISidebarProps) {
+export default function AISidebar({
+  selectionContext,
+  fullContent,
+  apiKey,
+  model,
+  isMobile = false,
+}: AISidebarProps) {
   const [loading, setLoading] = useState(false);
-  const [response, setResponse] = useState('');
-  const [error, setError] = useState('');
+  const [response, setResponse] = useState("");
+  const [error, setError] = useState("");
   const [currentModel, setCurrentModel] = useState(model);
   const [showSettings, setShowSettings] = useState(false);
-  const [customModel, setCustomModel] = useState('');
-  const [apiKeyInput, setApiKeyInput] = useState('');
+  const [customModel, setCustomModel] = useState("");
+  const [apiKeyInput, setApiKeyInput] = useState("");
   const { updateSettings, settings } = useNotesStore();
 
   const generateExplanation = useCallback(async () => {
@@ -30,76 +37,95 @@ export default function AISidebar({ selectionContext, fullContent, apiKey, model
     // Limiter la sélection à 10 mots
     const wordCount = selectionContext.text.trim().split(/\s+/).length;
     if (wordCount > 10) {
-      setError('Please select 10 words or less for the AI assistant.');
-      setResponse('');
+      setError("Please select 10 words or less for the AI assistant.");
+      setResponse("");
       return;
     }
 
     // Debug logging
-    console.log('AISidebar - generateExplanation called');
-    console.log('API Key:', apiKey ? `${apiKey.slice(0, 10)}...` : 'MISSING');
-    console.log('Model:', model);
-    console.log('Selected text:', selectionContext.text);
-    console.log('AI Assistant Enabled:', settings.aiAssistantEnabled);
-    console.log('Default Language:', settings.defaultLanguage);
+    console.log("AISidebar - generateExplanation called");
+    console.log("API Key:", apiKey ? `${apiKey.slice(0, 10)}...` : "MISSING");
+    console.log("Model:", model);
+    console.log("Selected text:", selectionContext.text);
+    console.log("AI Assistant Enabled:", settings.aiAssistantEnabled);
+    console.log("Default Language:", settings.defaultLanguage);
 
     if (!apiKey || !apiKey.trim()) {
-      setError('No API key configured. Please check your settings.');
+      setError("No API key configured. Please check your settings.");
       return;
     }
 
     setLoading(true);
-    setError('');
-    setResponse('');
+    setError("");
+    setResponse("");
 
     try {
       const api = new OpenRouterAPI(apiKey);
-      
+
       // Construire le contexte
-      const selectedModelInfo = DEFAULT_MODELS.find(m => m.id === model) || { context_length: 4096 };
+      const selectedModelInfo = DEFAULT_MODELS.find((m) => m.id === model) || {
+        context_length: 4096,
+      };
       const maxContext = selectedModelInfo.context_length;
-      
+
       let contextText = selectionContext.text;
       const remainingChars = maxContext - contextText.length;
-      
+
       if (remainingChars > 0 && selectionContext.start > 0) {
         const charsBefore = Math.floor(remainingChars / 2);
         const charsAfter = remainingChars - charsBefore;
-        
-        const textBefore = fullContent.substring(Math.max(0, selectionContext.start - charsBefore), selectionContext.start);
-        const textAfter = fullContent.substring(selectionContext.end, Math.min(fullContent.length, selectionContext.end + charsAfter));
-        
+
+        const textBefore = fullContent.substring(
+          Math.max(0, selectionContext.start - charsBefore),
+          selectionContext.start,
+        );
+        const textAfter = fullContent.substring(
+          selectionContext.end,
+          Math.min(fullContent.length, selectionContext.end + charsAfter),
+        );
+
         contextText = `${textBefore}>>${selectionContext.text}<<${textAfter}`;
       }
-      
+
       const result = await api.explainSelection(
         contextText,
-        'User is taking notes and wants an explanation of the selected text (marked with >>...<<). Focus on the marked text.',
+        "User is taking notes and wants an explanation of the selected text (marked with >>...<<). Focus on the marked text.",
         model,
-        settings.defaultLanguage
+        settings.defaultLanguage,
       );
 
       if (result.content) {
         setResponse(result.content);
         setCurrentModel(model);
       } else {
-        setError('No response received');
+        setError("No response received");
       }
     } catch (err) {
-      console.error('Error calling OpenRouter:', err);
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      console.error("Error calling OpenRouter:", err);
+      setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setLoading(false);
     }
-  }, [selectionContext, fullContent, apiKey, model, settings.aiAssistantEnabled, settings.defaultLanguage]);
+  }, [
+    selectionContext,
+    fullContent,
+    apiKey,
+    model,
+    settings.aiAssistantEnabled,
+    settings.defaultLanguage,
+  ]);
 
   useEffect(() => {
-    if (selectionContext && selectionContext.text.trim() && settings.aiAssistantEnabled) {
+    if (
+      selectionContext &&
+      selectionContext.text.trim() &&
+      settings.aiAssistantEnabled
+    ) {
       generateExplanation();
     } else {
-      setResponse('');
-      setError('');
-      setCurrentModel('');
+      setResponse("");
+      setError("");
+      setCurrentModel("");
     }
   }, [selectionContext, generateExplanation, settings.aiAssistantEnabled]);
 
@@ -114,92 +140,118 @@ export default function AISidebar({ selectionContext, fullContent, apiKey, model
 
   const handleAddCustomModel = async () => {
     if (!customModel.trim()) return;
-    
+
     const customModels = settings.customModels || [];
     const updatedModels = [...customModels, customModel.trim()];
-    
+
     await updateSettings({
       customModels: updatedModels,
-      defaultModel: customModel.trim()
+      defaultModel: customModel.trim(),
     });
-    
-    setCustomModel('');
+
+    setCustomModel("");
     setShowSettings(false);
   };
 
   const handleApiKeyChange = async () => {
     if (!apiKeyInput.trim()) return;
-    
+
     await updateSettings({
-      openrouterApiKey: apiKeyInput.trim()
+      openrouterApiKey: apiKeyInput.trim(),
     });
-    
-    setApiKeyInput('');
+
+    setApiKeyInput("");
     setShowSettings(false);
   };
 
   const handleToggleAIAssistant = async (enabled: boolean) => {
     await updateSettings({
-      aiAssistantEnabled: enabled
+      aiAssistantEnabled: enabled,
     });
   };
 
   const handleAddToNote = () => {
     if (!response) return;
-    
+
     // Ajouter le texte brut sans liaison au mot surligné
     const plainText = response;
-    
+
     // Trigger l'ajout du texte brut
-    const event = new CustomEvent('add-to-note', {
+    const event = new CustomEvent("add-to-note", {
       detail: {
-        content: plainText
-      }
+        content: plainText,
+      },
     });
     window.dispatchEvent(event);
   };
 
   const availableModels = [
     ...DEFAULT_MODELS,
-    ...(settings.customModels || []).map(modelId => ({
+    ...(settings.customModels || []).map((modelId) => ({
       id: modelId,
       name: modelId,
-      description: 'Modèle personnalisé',
+      description: "Modèle personnalisé",
       context_length: 0,
-      pricing: { prompt: '0', completion: '0' }
-    }))
+      pricing: { prompt: "0", completion: "0" },
+    })),
   ];
 
   return (
     <div className="w-full bg-gray-50 flex flex-col h-64 max-h-[400px]">
       {/* Header */}
-      <div className="px-4 py-2 border-b border-gray-200 bg-white flex items-center justify-between">
+      <div
+        className={`border-b border-gray-200 bg-white flex items-center justify-between ${isMobile ? "px-4 py-3" : "px-4 py-2"}`}
+      >
         <div className="flex items-center gap-2">
-          <h3 className="text-sm font-semibold text-gray-900">
+          <h3
+            className={`font-semibold text-gray-900 ${isMobile ? "text-base" : "text-sm"}`}
+          >
             AI Assistant
           </h3>
           <button
-            onClick={() => handleToggleAIAssistant(!settings.aiAssistantEnabled)}
+            onClick={() =>
+              handleToggleAIAssistant(!settings.aiAssistantEnabled)
+            }
             className={`
               px-2 py-0.5 rounded text-xs font-medium transition-all
-              ${settings.aiAssistantEnabled
-                ? 'bg-green-100 text-green-700 border border-green-200'
-                : 'bg-red-100 text-red-700 border border-red-200'
+              ${
+                settings.aiAssistantEnabled
+                  ? "bg-green-100 text-green-700 border border-green-200"
+                  : "bg-red-100 text-red-700 border border-red-200"
               }
             `}
-            title={settings.aiAssistantEnabled ? 'Disable AI Assistant' : 'Enable AI Assistant'}
+            title={
+              settings.aiAssistantEnabled
+                ? "Disable AI Assistant"
+                : "Enable AI Assistant"
+            }
           >
-            {settings.aiAssistantEnabled ? 'ON' : 'OFF'}
+            {settings.aiAssistantEnabled ? "ON" : "OFF"}
           </button>
         </div>
         <button
           onClick={() => setShowSettings(!showSettings)}
           className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
-          title="Configurer le modèle"
+          title="Configure model"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+            />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+            />
           </svg>
         </button>
       </div>
@@ -240,8 +292,10 @@ export default function AISidebar({ selectionContext, fullContent, apiKey, model
             </label>
             <input
               type="text"
-              value={settings.defaultLanguage || 'en'}
-              onChange={(e) => updateSettings({ defaultLanguage: e.target.value })}
+              value={settings.defaultLanguage || "en"}
+              onChange={(e) =>
+                updateSettings({ defaultLanguage: e.target.value })
+              }
               placeholder="en, fr, es"
               className="w-full text-xs border border-gray-300 rounded-md px-2 py-1.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
@@ -266,7 +320,7 @@ export default function AISidebar({ selectionContext, fullContent, apiKey, model
               ))}
             </select>
           </div>
-          
+
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-2">
               Add Custom Model
@@ -292,11 +346,25 @@ export default function AISidebar({ selectionContext, fullContent, apiKey, model
       )}
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4 h-full">
+      <div
+        className={`flex-1 overflow-y-auto h-full ${isMobile ? "p-4" : "p-4"}`}
+      >
         {!selectionContext && !loading && !response && (
-          <div className="text-center text-gray-500 py-4">
-            <svg className="w-8 h-8 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+          <div
+            className={`text-center text-gray-500 ${isMobile ? "py-6" : "py-4"}`}
+          >
+            <svg
+              className="w-8 h-8 mx-auto mb-2 text-gray-300"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M13 10V3L4 14h7v7l9-11h-7z"
+              />
             </svg>
             <p className="text-sm">
               Select text in the editor to get AI explanations
@@ -321,11 +389,22 @@ export default function AISidebar({ selectionContext, fullContent, apiKey, model
             {/* Model Info and Actions */}
             <div className="flex items-center justify-between bg-blue-50 border border-blue-200 px-3 py-2 rounded-lg">
               <div className="flex items-center gap-2">
-                <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                <svg
+                  className="w-4 h-4 text-blue-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+                  />
                 </svg>
                 <span className="text-xs font-medium text-blue-800">
-                  {availableModels.find(m => m.id === currentModel)?.name || currentModel}
+                  {availableModels.find((m) => m.id === currentModel)?.name ||
+                    currentModel}
                 </span>
               </div>
               <div className="flex items-center gap-2">
@@ -335,8 +414,19 @@ export default function AISidebar({ selectionContext, fullContent, apiKey, model
                   className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   title="Regenerate response"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h5M20 11A8.1 8.1 0 004.5 9.5M4 5.5A8.1 8.1 0 0019.5 14.5"></path>
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M4 4v5h5M20 11A8.1 8.1 0 004.5 9.5M4 5.5A8.1 8.1 0 0019.5 14.5"
+                    ></path>
                   </svg>
                 </button>
                 <button
@@ -355,23 +445,21 @@ export default function AISidebar({ selectionContext, fullContent, apiKey, model
                 components={{
                   code(props) {
                     const { className, children } = props;
-                    const match = /language-(\w+)/.exec(className || '');
+                    const match = /language-(\w+)/.exec(className || "");
                     const isInline = !match;
                     return !isInline ? (
                       <SyntaxHighlighter
                         style={tomorrow}
-                        language={match?.[1] || 'text'}
+                        language={match?.[1] || "text"}
                         PreTag="div"
                         className="text-xs"
                       >
-                        {String(children).replace(/\n$/, '')}
+                        {String(children).replace(/\n$/, "")}
                       </SyntaxHighlighter>
                     ) : (
-                      <code className={className}>
-                        {children}
-                      </code>
+                      <code className={className}>{children}</code>
                     );
-                  }
+                  },
                 }}
               >
                 {response}

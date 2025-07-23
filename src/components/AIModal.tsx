@@ -1,83 +1,104 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useSettings, useNotesStore } from '@/lib/store';
-import { OpenRouterAPI, DEFAULT_MODELS } from '@/lib/openrouter';
+import { useState } from "react";
+import { useSettings, useNotesStore } from "@/lib/store";
+import { OpenRouterAPI, DEFAULT_MODELS } from "@/lib/openrouter";
 
 interface AIModalProps {
   context: {
-    type: 'explain' | 'command';
+    type: "explain" | "command";
     selectedText?: string;
     command?: string;
     position?: { x: number; y: number };
   };
   onClose: () => void;
   currentPageContent: string;
+  isMobile?: boolean;
 }
 
-export default function AIModal({ context, onClose, currentPageContent }: AIModalProps) {
+export default function AIModal({
+  context,
+  onClose,
+  currentPageContent,
+  isMobile = false,
+}: AIModalProps) {
   const settings = useSettings();
   const { updateSettings } = useNotesStore();
   const [selectedModel, setSelectedModel] = useState(settings.defaultModel);
-  const [response, setResponse] = useState('');
+  const [response, setResponse] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [hasStarted, setHasStarted] = useState(false);
-  const [newModel, setNewModel] = useState('');
+  const [newModel, setNewModel] = useState("");
   const [showAddModel, setShowAddModel] = useState(false);
 
   // Combiner modèles par défaut et modèles personnalisés
   const availableModels = [
-    ...DEFAULT_MODELS.map(model => ({ id: model.id, name: model.name })),
-    ...(settings.customModels || []).map(model => ({ id: model, name: model }))
+    ...DEFAULT_MODELS.map((model) => ({ id: model.id, name: model.name })),
+    ...(settings.customModels || []).map((model) => ({
+      id: model,
+      name: model,
+    })),
   ];
 
   const generateAIResponse = async () => {
     try {
       setIsLoading(true);
-      setError('');
+      setError("");
       setHasStarted(true);
-      
+
       if (!settings.openrouterApiKey) {
-        throw new Error('OpenRouter API key not configured');
+        throw new Error("OpenRouter API key not configured");
       }
-      
+
       const api = new OpenRouterAPI(settings.openrouterApiKey);
-      
+
       let aiResponse;
-      
-      if (context.type === 'explain' && context.selectedText) {
+
+      if (context.type === "explain" && context.selectedText) {
         aiResponse = await api.explainSelection(
           context.selectedText,
           currentPageContent,
           selectedModel,
-          settings.defaultLanguage
+          settings.defaultLanguage,
         );
-      } else if (context.type === 'command' && context.command) {
+      } else if (context.type === "command" && context.command) {
         aiResponse = await api.processSlashCommand(
           context.command,
           currentPageContent,
           selectedModel,
-          settings.defaultLanguage
+          settings.defaultLanguage,
         );
       } else {
-        throw new Error('Invalid context');
+        throw new Error("Invalid context");
       }
-      
+
       setResponse(aiResponse.content);
     } catch (err) {
-      console.error('AI Error:', err);
-      setError(err instanceof Error ? err.message : 'Error during generation');
+      console.error("AI Error:", err);
+      setError(err instanceof Error ? err.message : "Error during generation");
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleInsertResponse = () => {
-    if (response && (window as Window & { insertTextAtCursor?: (text: string, selectedText?: string) => void }).insertTextAtCursor) {
+    if (
+      response &&
+      (
+        window as Window & {
+          insertTextAtCursor?: (text: string, selectedText?: string) => void;
+        }
+      ).insertTextAtCursor
+    ) {
       // Passer le texte sélectionné pour les explications afin de créer une citation
-      const selectedText = context.type === 'explain' ? context.selectedText : undefined;
-      (window as Window & { insertTextAtCursor?: (text: string, selectedText?: string) => void }).insertTextAtCursor!(response, selectedText);
+      const selectedText =
+        context.type === "explain" ? context.selectedText : undefined;
+      (
+        window as Window & {
+          insertTextAtCursor?: (text: string, selectedText?: string) => void;
+        }
+      ).insertTextAtCursor!(response, selectedText);
     }
     onClose();
   };
@@ -92,71 +113,99 @@ export default function AIModal({ context, onClose, currentPageContent }: AIModa
 
   const handleAddModel = async () => {
     if (!newModel.trim()) return;
-    
+
     const currentCustomModels = settings.customModels || [];
     if (currentCustomModels.includes(newModel.trim())) {
-      setError('This model already exists');
+      setError("This model already exists");
       return;
     }
 
     const updatedCustomModels = [...currentCustomModels, newModel.trim()];
     await updateSettings({ customModels: updatedCustomModels });
-    setNewModel('');
+    setNewModel("");
     setShowAddModel(false);
     setSelectedModel(newModel.trim());
   };
 
   const getRequestPreview = () => {
-    if (context.type === 'explain' && context.selectedText) {
-      return `Explain text: "${context.selectedText.substring(0, 100)}${context.selectedText.length > 100 ? '...' : ''}"`;
-    } else if (context.type === 'command' && context.command) {
+    if (context.type === "explain" && context.selectedText) {
+      return `Explain text: "${context.selectedText.substring(0, 100)}${context.selectedText.length > 100 ? "..." : ""}"`;
+    } else if (context.type === "command" && context.command) {
       return `Command: /${context.command}`;
     }
-    return 'AI Request';
+    return "AI Request";
   };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div 
+      <div
         className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[80vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <div
+          className={`flex items-center justify-between border-b border-gray-200 ${
+            isMobile ? "p-4" : "p-4"
+          }`}
+        >
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">
-              {context.type === 'explain' ? 'AI Explanation' : 'AI Assistance'}
+            <h2
+              className={`font-semibold text-gray-900 ${
+                isMobile ? "text-base" : "text-lg"
+              }`}
+            >
+              {context.type === "explain" ? "AI Explanation" : "AI Command"}
             </h2>
-            <p className="text-sm text-gray-500 mt-1">
-              {getRequestPreview()}
-            </p>
+            <p className="text-sm text-gray-500 mt-1">{getRequestPreview()}</p>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 rounded-full"
+            className={`text-gray-400 hover:text-gray-600 transition-colors ${
+              isMobile ? "p-2" : ""
+            }`}
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <svg
+              className={`${isMobile ? "w-5 h-5" : "w-6 h-6"}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className={`flex-1 overflow-y-auto ${isMobile ? "p-4" : "p-4"}`}>
           {!hasStarted && (
             <div className="text-center py-8">
               <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                <svg
+                  className="w-8 h-8 text-blue-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 10V3L4 14h7v7l9-11h-7z"
+                  />
                 </svg>
               </div>
               <h3 className="text-lg font-medium text-gray-900 mb-2">
                 Ready for AI assistance
               </h3>
               <p className="text-gray-500 mb-6">
-                {context.type === 'explain'
-                  ? 'AI will analyze the selected text and provide an explanation in the context of your page.'
-                  : 'AI will process your command and generate a helpful response.'}
+                {context.type === "explain"
+                  ? "AI will analyze the selected text and provide an explanation in the context of your page."
+                  : "AI will process your command and generate a helpful response."}
               </p>
               <div className="bg-gray-50 rounded-lg p-4 mb-6">
                 <div className="text-sm text-gray-600 space-y-3">
@@ -184,7 +233,7 @@ export default function AIModal({ context, onClose, currentPageContent }: AIModa
                         +
                       </button>
                     </div>
-                    
+
                     {showAddModel && (
                       <div className="mt-3 p-3 bg-white rounded-md border border-gray-200">
                         <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -208,7 +257,7 @@ export default function AIModal({ context, onClose, currentPageContent }: AIModa
                           <button
                             onClick={() => {
                               setShowAddModel(false);
-                              setNewModel('');
+                              setNewModel("");
                             }}
                             className="px-3 py-1 text-xs text-gray-600 border border-gray-300 rounded hover:bg-gray-50"
                           >
@@ -224,8 +273,10 @@ export default function AIModal({ context, onClose, currentPageContent }: AIModa
                     </label>
                     <input
                       type="text"
-                      value={settings.defaultLanguage || 'en'}
-                      onChange={(e) => updateSettings({ defaultLanguage: e.target.value })}
+                      value={settings.defaultLanguage || "en"}
+                      onChange={(e) =>
+                        updateSettings({ defaultLanguage: e.target.value })
+                      }
                       placeholder="en, fr, es, etc."
                       className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
@@ -235,7 +286,9 @@ export default function AIModal({ context, onClose, currentPageContent }: AIModa
                   </div>
                   <div className="flex items-center justify-between">
                     <span>Context:</span>
-                    <span className="font-medium">{currentPageContent.length} characters</span>
+                    <span className="font-medium">
+                      {currentPageContent.length} characters
+                    </span>
                   </div>
                 </div>
               </div>
@@ -260,7 +313,9 @@ export default function AIModal({ context, onClose, currentPageContent }: AIModa
           {error && (
             <div className="text-center py-8">
               <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-                <p className="text-red-600 font-medium mb-2">Error during generation</p>
+                <p className="text-red-600 font-medium mb-2">
+                  Error during generation
+                </p>
                 <p className="text-red-500 text-sm">{error}</p>
               </div>
               <button
