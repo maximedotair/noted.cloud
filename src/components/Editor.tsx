@@ -6,7 +6,6 @@ import type { Page } from "@/lib/database";
 import RichTextRenderer from "./RichTextRenderer";
 import AISidebar from "./AISidebar";
 import ShareModal from "./ShareModal";
-import MobileSelectionMenu from "./MobileSelectionMenu";
 import { useToast } from "./Toast";
 import { OpenRouterAPI } from "@/lib/openrouter";
 
@@ -45,13 +44,7 @@ export default function Editor({
   } | null>(null);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
-  const [showMobileSelectionMenu, setShowMobileSelectionMenu] = useState(false);
-  const [mobileSelectionPosition, setMobileSelectionPosition] = useState({
-    x: 0,
-    y: 0,
-  });
-  const [isAISidebarExpanded, setIsAISidebarExpanded] = useState(!isMobile);
-  const [isMobileAILoading, setIsMobileAILoading] = useState(false);
+  const [isAISidebarExpanded, setIsAISidebarExpanded] = useState(true);
   const contentRef = useRef<HTMLTextAreaElement>(null);
 
   // Synchronize states with active page (only when page changes)
@@ -81,13 +74,6 @@ export default function Editor({
     }
   }, [isMobile]);
 
-  // Fermer le menu de sélection mobile si l'AI est désactivée
-  useEffect(() => {
-    if (isMobile && !settings.aiAssistantEnabled && showMobileSelectionMenu) {
-      setShowMobileSelectionMenu(false);
-      setSelectionContext(null);
-    }
-  }, [settings.aiAssistantEnabled, isMobile, showMobileSelectionMenu]);
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newTitle = e.target.value;
@@ -117,7 +103,6 @@ export default function Editor({
     // Si la sélection est annulée (curseur simple), réinitialiser l'assistant
     if (e.target.selectionStart === e.target.selectionEnd) {
       setSelectionContext(null);
-      setShowMobileSelectionMenu(false);
     }
 
     // Detect "/" input
@@ -199,7 +184,7 @@ export default function Editor({
     setSlashCommand("");
   };
 
-  const handleTextSelection = () => {
+  const handleTextSelection = async () => {
     const textarea = contentRef.current;
     if (textarea) {
       const text = textarea.value.substring(
@@ -236,28 +221,78 @@ export default function Editor({
             end: textarea.selectionEnd,
           });
 
-          // Sur mobile, afficher le menu de sélection seulement si AI est activée
+          // Sur mobile avec AI activé, appel direct à l'API
           if (isMobile && settings.aiAssistantEnabled) {
-            const rect = textarea.getBoundingClientRect();
-            const scrollTop = textarea.scrollTop;
-            const lines = content.substring(0, startIndex).split("\n");
-            const currentLine = lines.length - 1;
-            const lineHeight = 28;
-
-            setMobileSelectionPosition({
-              x: rect.left + rect.width / 2,
-              y: rect.top + currentLine * lineHeight - scrollTop + 40,
-            });
-            setShowMobileSelectionMenu(true);
+            await handleDirectMobileExplanation(text.trim(), startIndex, endIndex);
           }
         } else {
           setSelectionContext(null);
-          setShowMobileSelectionMenu(false);
         }
       } else {
         setSelectionContext(null);
-        setShowMobileSelectionMenu(false);
       }
+    }
+  };
+
+  const handleDirectMobileExplanation = async (selectedText: string, start: number, end: number) => {
+    // Vérifier si l'AI est activée
+    if (!settings.aiAssistantEnabled) {
+      showError("AI Assistant is disabled. Please enable it first.", 3000);
+      setSelectionContext(null);
+      return;
+    }
+
+    try {
+      if (!apiKey || !apiKey.trim()) {
+        showError("No API key configured. Please check your settings.", 3000);
+        return;
+      }
+
+      const api = new OpenRouterAPI(apiKey);
+
+      // Construire le contexte
+      let contextText = selectedText;
+      const maxContext = 4096; // Context par défaut
+      const remainingChars = maxContext - contextText.length;
+
+      if (remainingChars > 0 && start > 0) {
+        const charsBefore = Math.floor(remainingChars / 2);
+        const charsAfter = remainingChars - charsBefore;
+
+        const textBefore = content.substring(
+          Math.max(0, start - charsBefore),
+          start,
+        );
+        const textAfter = content.substring(
+          end,
+          Math.min(content.length, end + charsAfter),
+        );
+
+        contextText = `${textBefore}>>${selectedText}<<${textAfter}`;
+      }
+
+      const result = await api.explainSelection(
+        contextText,
+        "User is taking notes and wants an explanation of the selected text (marked with >>...<<). Focus on the marked text.",
+        model,
+        settings.defaultLanguage,
+      );
+
+      if (result.content) {
+        // Ajouter la réponse directement à la note
+        insertTextAtCursor(result.content);
+        showSuccess("AI explanation added to note", 2000);
+      } else {
+        showError("No response received from AI", 3000);
+      }
+    } catch (err) {
+      console.error("Error calling OpenRouter:", err);
+      showError(
+        err instanceof Error ? err.message : "An error occurred",
+        3000,
+      );
+    } finally {
+      setSelectionContext(null);
     }
   };
 
@@ -265,117 +300,9 @@ export default function Editor({
     if (!selectionContext) return;
 
     // Vérifier si l'AI est activée
-    if (!settings.aiAssistantEnabled) {
-      showError("AI Assistant is disabled. Please enable it first.", 3000);
-      setShowMobileSelectionMenu(false);
-      setSelectionContext(null);
-      return;
-    }
-
-    if (isMobile) {
-      // Sur mobile, appel direct à l'API sans modal
-      setIsMobileAILoading(true);
-      setShowMobileSelectionMenu(false);
-
-      try {
-        if (!apiKey || !apiKey.trim()) {
-          showError("No API key configured. Please check your settings.", 3000);
-          return;
-        }
-
-        const api = new OpenRouterAPI(apiKey);
-
-        // Construire le contexte
-        let contextText = selectionContext.text;
-        const maxContext = 4096; // Context par défaut
-        const remainingChars = maxContext - contextText.length;
-
-        if (remainingChars > 0 && selectionContext.start > 0) {
-          const charsBefore = Math.floor(remainingChars / 2);
-          const charsAfter = remainingChars - charsBefore;
-
-          const textBefore = content.substring(
-            Math.max(0, selectionContext.start - charsBefore),
-            selectionContext.start,
-          );
-          const textAfter = content.substring(
-            selectionContext.end,
-            Math.min(content.length, selectionContext.end + charsAfter),
-          );
-
-          contextText = `${textBefore}>>${selectionContext.text}<<${textAfter}`;
-        }
-
-        const result = await api.explainSelection(
-          contextText,
-          "User is taking notes and wants an explanation of the selected text (marked with >>...<<). Focus on the marked text.",
-          model,
-          settings.defaultLanguage,
-        );
-
-        if (result.content) {
-          // Ajouter la réponse directement à la note
-          insertTextAtCursor(result.content);
-          showSuccess("AI explanation added to note", 2000);
-        } else {
-          showError("No response received from AI", 3000);
-        }
-      } catch (err) {
-        console.error("Error calling OpenRouter:", err);
-        showError(
-          err instanceof Error ? err.message : "An error occurred",
-          3000,
-        );
-      } finally {
-        setIsMobileAILoading(false);
-        setSelectionContext(null);
-      }
-    } else {
-      // Sur desktop, comportement normal avec modal
-      onOpenAIModal({
-        type: "explain",
-        selectedText: selectionContext.text,
-        position: mobileSelectionPosition,
-      });
-      setShowMobileSelectionMenu(false);
-      setSelectionContext(null);
-    }
+    // Cette fonction n'est plus utilisée - supprimée
   };
 
-  const handleMobileCopySelection = async () => {
-    if (!selectionContext) return;
-
-    try {
-      await navigator.clipboard.writeText(selectionContext.text);
-      showSuccess("Copied", 1500);
-    } catch (error) {
-      // Fallback pour les navigateurs sans support clipboard API
-      const textArea = document.createElement("textarea");
-      textArea.value = selectionContext.text;
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand("copy");
-      document.body.removeChild(textArea);
-      showSuccess("Copied", 1500);
-    }
-
-    setShowMobileSelectionMenu(false);
-    setSelectionContext(null);
-  };
-
-  const handleCloseMobileMenu = () => {
-    // Empêcher la fermeture pendant le chargement AI
-    if (isMobileAILoading) {
-      return;
-    }
-
-    setShowMobileSelectionMenu(false);
-    setSelectionContext(null);
-    // Désélectionner le texte
-    if (contentRef.current) {
-      contentRef.current.selectionStart = contentRef.current.selectionEnd;
-    }
-  };
 
   const insertTextAtCursor = useCallback(
     (text: string, selectedText?: string) => {
@@ -554,23 +481,6 @@ export default function Editor({
                   : "🚫 AI OFF"}
             </button>
 
-            {/* Bouton pour toggle AI Sidebar sur mobile */}
-            {isMobile && settings.aiAssistantEnabled && (
-              <button
-                onClick={() => setIsAISidebarExpanded(!isAISidebarExpanded)}
-                className={`
-                  rounded-lg font-medium transition-all
-                  ${
-                    isAISidebarExpanded
-                      ? "bg-purple-100 text-purple-700 border border-purple-200"
-                      : "bg-gray-100 text-gray-700 border border-gray-200"
-                  }
-                  px-2 py-1 text-xs
-                `}
-              >
-                {isAISidebarExpanded ? "⬇️" : "⬆️"}
-              </button>
-            )}
           </div>
         </div>
       </div>
@@ -634,20 +544,6 @@ Tips:
             />
           )}
 
-          {/* Menu de sélection mobile amélioré */}
-          <MobileSelectionMenu
-            isVisible={
-              isMobile &&
-              showMobileSelectionMenu &&
-              Boolean(settings.aiAssistantEnabled)
-            }
-            position={mobileSelectionPosition}
-            selectedText={selectionContext?.text || ""}
-            onExplain={handleMobileExplainSelection}
-            onCopy={handleMobileCopySelection}
-            onClose={handleCloseMobileMenu}
-            isLoading={isMobileAILoading}
-          />
 
           {/* Indicateur de commande slash */}
           {isTypingSlash && (
@@ -684,15 +580,9 @@ Tips:
           </div>
         )}
 
-        {/* AI Sidebar mobile collapsible */}
+        {/* AI Sidebar mobile - toujours visible */}
         {!isPreviewMode && settings.aiAssistantEnabled && isMobile && (
-          <div
-            className={`border-t border-gray-200 transition-all duration-300 ${
-              isAISidebarExpanded
-                ? "max-h-80 opacity-100"
-                : "max-h-0 opacity-0 overflow-hidden"
-            }`}
-          >
+          <div className="border-t border-gray-200">
             <AISidebar
               selectionContext={selectionContext}
               fullContent={content}
@@ -713,35 +603,7 @@ Tips:
         />
       )}
 
-      {/* Footer avec tips */}
-      <div
-        className={`border-t border-gray-200 bg-gray-50 ${isMobile ? "px-4 py-2" : "px-6 py-2"}`}
-      >
-        <div
-          className={`flex items-center justify-between text-gray-500 ${
-            isMobile ? "text-xs flex-col gap-1" : "text-xs"
-          }`}
-        >
-          <div
-            className={`flex gap-4 ${isMobile ? "flex-wrap justify-center text-center" : ""}`}
-          >
-            {isPreviewMode ? (
-              <>
-                <span>👁️ Preview mode active</span>
-                <span>📖 GitHub-style markdown viewer</span>
-              </>
-            ) : (
-              <>
-                <span>📝 GitHub-style markdown editor</span>
-                <span>✨ Select text for AI explanations</span>
-              </>
-            )}
-          </div>
-          <div className={isMobile ? "text-center" : ""}>
-            {content.length} characters
-          </div>
-        </div>
-      </div>
+   
     </div>
   );
 }
