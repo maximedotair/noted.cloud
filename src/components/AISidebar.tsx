@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { OpenRouterAPI, DEFAULT_MODELS } from "@/lib/openrouter";
 import { useNotesStore } from "@/lib/store";
 import ReactMarkdown from "react-markdown";
@@ -34,7 +34,10 @@ export default function AISidebar({
   const [error, setError] = useState("");
   const [currentModel, setCurrentModel] = useState(model);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [shouldGenerateExplanation, setShouldGenerateExplanation] = useState(false);
+  const [isWaitingForSelection, setIsWaitingForSelection] = useState(false);
   const { updateSettings, settings } = useNotesStore();
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const generateExplanation = useCallback(async () => {
     if (!selectionContext || !settings.aiAssistantEnabled) return;
@@ -112,19 +115,50 @@ export default function AISidebar({
     settings.defaultLanguage,
   ]);
 
+  // Debounce la sélection pour éviter les appels immédiats pendant la sélection
   useEffect(() => {
+    // Nettoyer le timeout précédent
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+
     if (
       selectionContext &&
       selectionContext.text.trim() &&
       settings.aiAssistantEnabled
     ) {
-      generateExplanation();
+      // Montrer l'indicateur d'attente immédiatement
+      setIsWaitingForSelection(true);
+      
+      // Ajouter un délai de 800ms avant de générer l'explication
+      // Cela permet à l'utilisateur de terminer sa sélection
+      debounceTimeoutRef.current = setTimeout(() => {
+        setIsWaitingForSelection(false);
+        setShouldGenerateExplanation(true);
+      }, 800);
     } else {
+      setIsWaitingForSelection(false);
+      setShouldGenerateExplanation(false);
       setResponse("");
       setError("");
       setCurrentModel("");
     }
-  }, [selectionContext, generateExplanation, settings.aiAssistantEnabled]);
+
+    // Nettoyage
+    return () => {
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
+    };
+  }, [selectionContext, settings.aiAssistantEnabled]);
+
+  // Effet séparé pour la génération d'explication
+  useEffect(() => {
+    if (shouldGenerateExplanation && selectionContext) {
+      generateExplanation();
+      setShouldGenerateExplanation(false);
+    }
+  }, [shouldGenerateExplanation, generateExplanation, selectionContext]);
 
   useEffect(() => {
     setCurrentModel(model);
@@ -276,7 +310,7 @@ export default function AISidebar({
       <div
         className={`flex-1 min-h-0 overflow-auto ${isMobile ? "p-4" : "p-4"}`}
       >
-        {!selectionContext && !loading && !response && (
+        {!selectionContext && !loading && !response && !isWaitingForSelection && (
           <div
             className={`text-center text-gray-500 ${isMobile ? "py-6" : "py-4"}`}
           >
@@ -295,6 +329,18 @@ export default function AISidebar({
             </svg>
             <p className="text-sm">
               Select text in the editor to get AI explanations
+            </p>
+          </div>
+        )}
+
+        {isWaitingForSelection && (
+          <div className="text-sm text-gray-600 bg-yellow-50 border border-yellow-200 px-4 py-3 rounded-lg">
+            <div className="flex items-center gap-2">
+              <div className="animate-pulse w-2 h-2 bg-yellow-500 rounded-full"></div>
+              <p className="font-medium">Sélection détectée...</p>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              Terminez votre sélection pour obtenir une explication
             </p>
           </div>
         )}
@@ -395,7 +441,7 @@ export default function AISidebar({
           </div>
         )}
 
-        {selectionContext && !loading && !error && !response && (
+        {selectionContext && !loading && !error && !response && !isWaitingForSelection && (
           <div className="text-sm text-gray-600 bg-blue-50 border border-blue-200 px-4 py-3 rounded-lg">
             <p className="font-medium mb-1">Texte sélectionné :</p>
             <p className="italic">&ldquo;{selectionContext.text}&rdquo;</p>
