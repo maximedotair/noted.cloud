@@ -11,12 +11,6 @@ import { OpenRouterAPI } from "@/lib/openrouter";
 
 interface EditorProps {
   page: Page;
-  onOpenAIModal: (context: {
-    type: "explain" | "command";
-    selectedText?: string;
-    command?: string;
-    position?: { x: number; y: number };
-  }) => void;
   apiKey: string;
   model: string;
   isMobile?: boolean;
@@ -24,7 +18,6 @@ interface EditorProps {
 
 export default function Editor({
   page,
-  onOpenAIModal,
   apiKey,
   model,
   isMobile = false,
@@ -155,11 +148,25 @@ export default function Editor({
 
   const executeSlashCommand = () => {
     if (slashCommand.trim()) {
-      onOpenAIModal({
-        type: "command",
-        command: slashCommand,
-        position: slashPosition,
+      // LOG: Diagnostic - vérifier si cette fonctionnalité est utilisée
+      console.log("🔍 DIAGNOSTIC: executeSlashCommand appelée avec:", slashCommand);
+      console.log("🔍 DIAGNOSTIC: onOpenAIModal serait appelée ici");
+      
+      // TEMPORAIRE: Remplacer onOpenAIModal par la logique AISidebar existante
+      // Au lieu d'utiliser onOpenAIModal, intégrer avec le système AI existant
+      setSelectionContext({
+        text: `/${slashCommand}`,
+        start: 0,
+        end: 0,
       });
+      
+      // Montrer l'AISidebar si AI est activé
+      if (settings.aiAssistantEnabled) {
+        setIsAISidebarVisible(true);
+        console.log("🔍 DIAGNOSTIC: AISidebar activé au lieu de onOpenAIModal");
+      } else {
+        console.log("🔍 DIAGNOSTIC: AI désactivé, commande slash ignorée");
+      }
 
       // Remove "/" command from content
       const textarea = contentRef.current;
