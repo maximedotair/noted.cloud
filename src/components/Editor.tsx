@@ -337,6 +337,14 @@ export default function Editor({
       if (noteContent) {
         // Ajouter le texte brut sans système de citations
         insertTextAtCursor(noteContent);
+        
+        // Effacer la sélection dans le textarea
+        if (contentRef.current) {
+          const textarea = contentRef.current;
+          // Placer le curseur à la fin du texte inséré
+          const newPosition = textarea.selectionEnd;
+          textarea.setSelectionRange(newPosition, newPosition);
+        }
       }
     };
 
@@ -554,6 +562,8 @@ Tips:
             onAddToNote={() => {
               // Fermer l'AISidebar après "Add to note"
               setIsAISidebarVisible(false);
+              // Réinitialiser la sélection pour revenir au mode par défaut
+              setSelectionContext(null);
             }}
           />
         </div>

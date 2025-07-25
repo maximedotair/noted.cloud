@@ -155,6 +155,11 @@ export default function AISidebar({
     });
     window.dispatchEvent(event);
 
+    // Réinitialiser l'état pour revenir au mode par défaut
+    setResponse("");
+    setError("");
+    setCurrentModel("");
+
     // Notifier le parent que "Add to note" a été cliqué
     if (onAddToNote) {
       onAddToNote();
