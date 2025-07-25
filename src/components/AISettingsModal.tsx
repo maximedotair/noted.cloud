@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { useNotesStore } from "@/lib/store";
 import { DEFAULT_MODELS } from "@/lib/openrouter";
 
@@ -70,12 +71,13 @@ export default function AISettingsModal({
     })),
   ];
 
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+  const modalContent = (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-[9999] p-4 overflow-y-auto" onClick={onClose}>
       <div
-        className={`bg-white rounded-lg shadow-xl w-full max-w-md max-h-[80vh] flex flex-col ${
-          isMobile ? "mx-4" : ""
+        className={`bg-white rounded-lg shadow-xl w-full max-w-md mt-8 mb-8 flex flex-col ${
+          isMobile ? "mx-4 min-h-0" : "min-h-0"
         }`}
+        style={{ maxHeight: 'calc(100vh - 4rem)' }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -221,4 +223,7 @@ export default function AISettingsModal({
       </div>
     </div>
   );
+
+  // Utiliser createPortal pour rendre au niveau du body
+  return typeof window !== 'undefined' ? createPortal(modalContent, document.body) : null;
 } 

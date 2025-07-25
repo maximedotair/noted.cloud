@@ -7,7 +7,6 @@ import RichTextRenderer from "./RichTextRenderer";
 import AISidebar from "./AISidebar";
 import ShareModal from "./ShareModal";
 import { useToast } from "./Toast";
-import { OpenRouterAPI } from "@/lib/openrouter";
 
 interface EditorProps {
   page: Page;
@@ -38,7 +37,7 @@ export default function Editor({
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isAISidebarExpanded, setIsAISidebarExpanded] = useState(true);
-  const [isAISidebarVisible, setIsAISidebarVisible] = useState(true);
+  const [isAISidebarVisible, setIsAISidebarVisible] = useState(true); // Visible par défaut
   const contentRef = useRef<HTMLTextAreaElement>(null);
 
   // Synchronize states with active page (only when page changes)
@@ -256,7 +255,7 @@ export default function Editor({
 
           // Sur mobile avec AI activé, appel direct à l'API
           if (isMobile && settings.aiAssistantEnabled) {
-            await handleDirectMobileExplanation(text.trim(), startIndex, endIndex);
+            // Pas d'action automatique en mobile - l'AISidebar gère l'explication
           }
         } else {
           setSelectionContext(null);
@@ -266,76 +265,6 @@ export default function Editor({
       }
     }
   };
-
-  const handleDirectMobileExplanation = async (selectedText: string, start: number, end: number) => {
-    // Vérifier si l'AI est activée
-    if (!settings.aiAssistantEnabled) {
-      showError("AI Assistant is disabled. Please enable it first.", 3000);
-      setSelectionContext(null);
-      return;
-    }
-
-    try {
-      if (!apiKey || !apiKey.trim()) {
-        showError("No API key configured. Please check your settings.", 3000);
-        return;
-      }
-
-      const api = new OpenRouterAPI(apiKey);
-
-      // Construire le contexte
-      let contextText = selectedText;
-      const maxContext = 4096; // Context par défaut
-      const remainingChars = maxContext - contextText.length;
-
-      if (remainingChars > 0 && start > 0) {
-        const charsBefore = Math.floor(remainingChars / 2);
-        const charsAfter = remainingChars - charsBefore;
-
-        const textBefore = content.substring(
-          Math.max(0, start - charsBefore),
-          start,
-        );
-        const textAfter = content.substring(
-          end,
-          Math.min(content.length, end + charsAfter),
-        );
-
-        contextText = `${textBefore}>>${selectedText}<<${textAfter}`;
-      }
-
-      const result = await api.explainSelection(
-        contextText,
-        "User is taking notes and wants an explanation of the selected text (marked with >>...<<). Focus on the marked text.",
-        model,
-        settings.defaultLanguage,
-      );
-
-      if (result.content) {
-        // Ajouter la réponse directement à la note
-        insertTextAtCursor(result.content);
-        showSuccess("AI explanation added to note", 2000);
-      } else {
-        showError("No response received from AI", 3000);
-      }
-    } catch (err) {
-      console.error("Error calling OpenRouter:", err);
-      showError(
-        err instanceof Error ? err.message : "An error occurred",
-        3000,
-      );
-    } finally {
-      setSelectionContext(null);
-    }
-  };
-
-  const handleMobileExplainSelection = async () => {
-    if (!selectionContext) return;
-
-    // Vérifier si l'AI est activée
-    // Cette fonction n'est plus utilisée - supprimée
-  };
-
 
   const insertTextAtCursor = useCallback(
     (text: string, selectedText?: string) => {
@@ -421,10 +350,10 @@ export default function Editor({
   }, [insertTextAtCursor]);
 
   return (
-    <div className="flex-1 flex flex-col bg-white overflow-hidden">
-      {/* Header */}
+    <div className="h-screen w-full flex flex-col bg-white relative">
+      {/* Header (A) - hauteur fixe, toujours visible */}
       <div
-        className={`border-b border-gray-200 ${isMobile ? "px-4 py-3" : "px-6 py-3"}`}
+        className={`border-b border-gray-200 flex-shrink-0 ${isMobile ? "px-4 py-3" : "px-6 py-3"}`}
       >
         <div className="flex items-center justify-between">
           <div className="flex-1 min-w-0">
@@ -518,114 +447,117 @@ export default function Editor({
         </div>
       </div>
 
-      {/* Editor Container */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Main Editor Area */}
-        <div className="flex-1 relative overflow-hidden">
-          {isPreviewMode ? (
-            /* Mode prévisualisation GitHub-style */
-            <div className="absolute inset-0 overflow-y-auto overflow-x-hidden">
-              <div className={`min-h-full ${isMobile ? "p-4" : "p-6"}`}>
-                <RichTextRenderer
-                  content={content}
-                  onTextSelect={handlePreviewTextSelect}
-                  className=""
-                />
-                {content.trim() === "" && (
-                  <div className="text-gray-400 italic">
-                    {isMobile
-                      ? "No content to display. Switch to edit mode to start writing."
-                      : "No content to display. Switch to edit mode to start writing."}
-                  </div>
-                )}
-              </div>
+      {/* Conteneur principal avec calcul de hauteur */}
+      <div 
+        className="flex-1 flex flex-col min-h-0 overflow-hidden"
+        style={{
+          height: `calc(100vh - ${
+            !isPreviewMode && settings.aiAssistantEnabled 
+              ? isAISidebarVisible 
+                ? (isMobile ? '16rem' : '19rem') // Header + AISidebar
+                : (isMobile ? '7.5rem' : '6.5rem') // Header + AISidebar fermé
+              : '4rem' // Juste le header
+          })`
+        }}
+      >
+        {/* Editor (B) - utilise tout l'espace disponible */}
+        {isPreviewMode ? (
+          /* Mode prévisualisation GitHub-style */
+          <div className="h-full overflow-y-auto">
+            <div className={`min-h-full ${isMobile ? "p-4" : "p-6"}`}>
+              <RichTextRenderer
+                content={content}
+                onTextSelect={handlePreviewTextSelect}
+                className=""
+              />
+              {content.trim() === "" && (
+                <div className="text-gray-400 italic">
+                  {isMobile
+                    ? "No content to display. Switch to edit mode to start writing."
+                    : "No content to display. Switch to edit mode to start writing."}
+                </div>
+              )}
             </div>
-          ) : (
-            /* Mode édition GitHub-style */
-            <textarea
-              ref={contentRef}
-              value={content}
-              onChange={handleContentChange}
-              onKeyDown={handleKeyDown}
-              onMouseUp={handleTextSelection}
-              onSelect={handleTextSelection}
-              onFocus={() => {
-                // Cacher l'AISidebar quand l'utilisateur clique dans l'éditeur
-                setIsAISidebarVisible(false);
-              }}
-              onTouchEnd={handleTextSelection} // Support tactile
-              className={`w-full h-full resize-none outline-none text-gray-900 leading-relaxed overflow-auto ${
-                isMobile ? "p-4 text-base" : "p-6 text-base"
-              }`}
-              placeholder={
-               `Start writing...
+          </div>
+        ) : (
+          /* Mode édition GitHub-style */
+          <textarea
+            ref={contentRef}
+            value={content}
+            onChange={handleContentChange}
+            onKeyDown={handleKeyDown}
+            onMouseUp={handleTextSelection}
+            onSelect={handleTextSelection}
+            onFocus={() => {
+              // Cacher l'AISidebar quand l'utilisateur clique dans l'éditeur
+              setIsAISidebarVisible(false);
+            }}
+            onTouchEnd={handleTextSelection} // Support tactile
+            className={`w-full h-full resize-none outline-none text-gray-900 leading-relaxed overflow-y-auto ${
+              isMobile ? "p-4 text-base" : "p-6 text-base"
+            }`}
+            placeholder={
+             `Start writing...
 
 Tips:
 • Select text to get explanations
 • Click 👁️ Preview to see markdown rendering
 • Click 🤖 to enable or disable AI assistant
 • Click 🔗 to share the note`}
-              style={{
-                fontFamily: isMobile
-                  ? 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-                  : 'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace',
-              }}
-            />
-          )}
-
-
-          {/* Indicateur de commande slash */}
-          {isTypingSlash && (
-            <div
-              className={`absolute bg-gray-900 text-white rounded pointer-events-none z-10 ${
-                isMobile ? "px-3 py-2 text-sm" : "px-2 py-1 text-sm"
-              }`}
-              style={{
-                left: slashPosition.x,
-                top: slashPosition.y + (isMobile ? 30 : 25),
-                transform: "translateX(-50%)",
-              }}
-            >
-              /{slashCommand}
-              <div
-                className={`opacity-75 mt-1 ${isMobile ? "text-xs" : "text-xs"}`}
-              >
-                Press Enter to execute
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* AI Sidebar */}
-        {!isPreviewMode && settings.aiAssistantEnabled && !isMobile && (
-          <div className="border-t border-gray-200">
-            <AISidebar
-              selectionContext={selectionContext}
-              fullContent={content}
-              apiKey={apiKey}
-              model={model}
-              isMobile={isMobile}
-              isVisible={isAISidebarVisible}
-              onToggleVisibility={() => setIsAISidebarVisible(!isAISidebarVisible)}
-            />
-          </div>
+            style={{
+              fontFamily: isMobile
+                ? 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                : 'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace',
+            }}
+          />
         )}
 
-        {/* AI Sidebar mobile - toujours visible */}
-        {!isPreviewMode && settings.aiAssistantEnabled && isMobile && (
-          <div className="border-t border-gray-200">
-            <AISidebar
-              selectionContext={selectionContext}
-              fullContent={content}
-              apiKey={apiKey}
-              model={model}
-              isMobile={isMobile}
-              isVisible={isAISidebarVisible}
-              onToggleVisibility={() => setIsAISidebarVisible(!isAISidebarVisible)}
-            />
+        {/* Indicateur de commande slash */}
+        {isTypingSlash && (
+          <div
+            className={`absolute bg-gray-900 text-white rounded pointer-events-none z-10 ${
+              isMobile ? "px-3 py-2 text-sm" : "px-2 py-1 text-sm"
+            }`}
+            style={{
+              left: slashPosition.x,
+              top: slashPosition.y + (isMobile ? 30 : 25),
+              transform: "translateX(-50%)",
+            }}
+          >
+            /{slashCommand}
+            <div
+              className={`opacity-75 mt-1 ${isMobile ? "text-xs" : "text-xs"}`}
+            >
+              Press Enter to execute
+            </div>
           </div>
         )}
       </div>
+
+      {/* AISidebar (C) - Position absolue en bas, hauteur fixe */}
+      {!isPreviewMode && settings.aiAssistantEnabled && (
+        <div 
+          className="absolute bottom-0 left-0 right-0 border-t-2 border-gray-300 bg-white shadow-2xl"
+          style={{
+            height: isAISidebarVisible ? (isMobile ? '12rem' : '15rem') : (isMobile ? '3.5rem' : '2.5rem'),
+            zIndex: 9999
+          }}
+        >
+          <AISidebar
+            selectionContext={selectionContext}
+            fullContent={content}
+            apiKey={apiKey}
+            model={model}
+            isMobile={isMobile}
+            isVisible={isAISidebarVisible}
+            onToggleVisibility={() => setIsAISidebarVisible(!isAISidebarVisible)}
+            onAddToNote={() => {
+              // Fermer l'AISidebar après "Add to note"
+              setIsAISidebarVisible(false);
+            }}
+          />
+        </div>
+      )}
 
       {/* Share Modal */}
       {isShareModalOpen && (

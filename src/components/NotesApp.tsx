@@ -73,7 +73,7 @@ export default function NotesApp() {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-full bg-gray-50 overflow-hidden">
       {/* Overlay pour mobile */}
       {isMobile && isMobileSidebarOpen && (
         <div

@@ -47,14 +47,6 @@ export default function AISidebar({
       return;
     }
 
-    // Debug logging
-    console.log("AISidebar - generateExplanation called");
-    console.log("API Key:", apiKey ? `${apiKey.slice(0, 10)}...` : "MISSING");
-    console.log("Model:", model);
-    console.log("Selected text:", selectionContext.text);
-    console.log("AI Assistant Enabled:", settings.aiAssistantEnabled);
-    console.log("Default Language:", settings.defaultLanguage);
-
     if (!apiKey || !apiKey.trim()) {
       setError("No API key configured. Please check your settings.");
       return;
@@ -170,12 +162,10 @@ export default function AISidebar({
   };
 
   return (
-    <div className={`w-full bg-gray-50 flex flex-col transition-all duration-300 ${
-      isVisible ? 'h-64 max-h-[400px]' : 'h-auto'
-    }`}>
+    <div className="w-full h-full bg-gray-50 flex flex-col">
       {/* Header */}
       <div
-        className={`border-b border-gray-200 bg-white flex items-center justify-between ${isMobile ? "px-4 py-3" : "px-4 py-2"}`}
+        className={`border-b border-gray-200 bg-white flex items-center justify-between flex-shrink-0 ${isMobile ? "px-4 py-3" : "px-4 py-2"}`}
       >
         <div className="flex items-center gap-2">
           <h3
@@ -278,9 +268,9 @@ export default function AISidebar({
 
       {/* Content */}
       {isVisible && (
-        <div
-          className={`flex-1 overflow-y-auto h-full ${isMobile ? "p-4" : "p-4"}`}
-        >
+      <div
+        className={`flex-1 min-h-0 overflow-auto ${isMobile ? "p-4" : "p-4"}`}
+      >
         {!selectionContext && !loading && !response && (
           <div
             className={`text-center text-gray-500 ${isMobile ? "py-6" : "py-4"}`}
