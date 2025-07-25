@@ -4,24 +4,20 @@ import { useEffect, useState } from "react";
 import {
   useNotesStore,
   useCurrentPage,
-  useIsAIModalOpen,
-  useAIModalContext,
   useSettings,
 } from "@/lib/store";
 import Sidebar from "./Sidebar";
 import Editor from "./Editor";
-import AIModal from "./AIModal";
 
 export default function NotesApp() {
-  const { createPage, openAIModal, closeAIModal, initialize } = useNotesStore();
+  const { createPage, initialize } = useNotesStore();
   const currentPage = useCurrentPage();
-  const isAIModalOpen = useIsAIModalOpen();
-  const aiContext = useAIModalContext();
   const settings = useSettings();
 
   // État pour la sidebar mobile
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   // Initialiser le store au démarrage
   useEffect(() => {
@@ -64,25 +60,16 @@ export default function NotesApp() {
     await createPage("New page");
   };
 
-  const handleOpenAIModal = (context: {
-    type: "explain" | "command";
-    selectedText?: string;
-    command?: string;
-    position?: { x: number; y: number };
-  }) => {
-    openAIModal(context);
-  };
-
-  const handleCloseAIModal = () => {
-    closeAIModal();
-  };
-
   const toggleMobileSidebar = () => {
     setIsMobileSidebarOpen(!isMobileSidebarOpen);
   };
 
   const closeMobileSidebar = () => {
     setIsMobileSidebarOpen(false);
+  };
+
+  const toggleSidebarCollapse = () => {
+    setIsSidebarCollapsed(!isSidebarCollapsed);
   };
 
   return (
@@ -111,6 +98,8 @@ export default function NotesApp() {
           onCreatePage={handleCreateFirstPage}
           isMobile={isMobile}
           onClose={closeMobileSidebar}
+          isCollapsed={!isMobile ? isSidebarCollapsed : false}
+          onToggleCollapse={!isMobile ? toggleSidebarCollapse : undefined}
         />
       </div>
 
@@ -148,7 +137,6 @@ export default function NotesApp() {
         {currentPage ? (
           <Editor
             page={currentPage}
-            onOpenAIModal={handleOpenAIModal}
             apiKey={settings.openrouterApiKey}
             model={settings.defaultModel}
             isMobile={isMobile}
@@ -193,16 +181,6 @@ export default function NotesApp() {
           </div>
         )}
       </div>
-
-      {/* AI Modal */}
-      {isAIModalOpen && aiContext && (
-        <AIModal
-          context={aiContext}
-          onClose={handleCloseAIModal}
-          currentPageContent={currentPage?.content || ""}
-          isMobile={isMobile}
-        />
-      )}
     </div>
   );
 }

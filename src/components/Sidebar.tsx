@@ -8,12 +8,16 @@ interface SidebarProps {
   onCreatePage: () => void;
   isMobile?: boolean;
   onClose?: () => void;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 export default function Sidebar({
   onCreatePage,
   isMobile = false,
   onClose,
+  isCollapsed = false,
+  onToggleCollapse,
 }: SidebarProps) {
   const {
     pages,
@@ -76,6 +80,35 @@ export default function Sidebar({
     const hasChildren = children.length > 0;
     const isExpanded = expandedPages.has(page.id);
     const isActive = currentPageId === page.id;
+
+    if (isCollapsed && !isMobile) {
+      // Mode réduit : affichage simplifié sans sous-pages
+      return (
+        <div key={page.id}>
+          <div
+            className={`flex items-center justify-center p-2 rounded-lg cursor-pointer group hover:bg-gray-100 transition-colors ${
+              isActive ? "bg-blue-50 border-r-2 border-blue-500" : ""
+            }`}
+            onClick={() => handlePageSelect(page.id)}
+            title={page.title || "Untitled"}
+          >
+            <svg
+              className="w-4 h-4 text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+              />
+            </svg>
+          </div>
+        </div>
+      );
+    }
 
     return (
       <div key={page.id}>
@@ -196,18 +229,53 @@ export default function Sidebar({
 
   return (
     <div
-      className={`bg-white border-r border-gray-200 flex flex-col h-full ${
-        isMobile ? "w-80 shadow-xl" : "w-80"
+      className={`bg-white border-r border-gray-200 flex flex-col h-full transition-all duration-300 ${
+        isMobile ? "w-80 shadow-xl" : isCollapsed ? "w-16" : "w-80"
       }`}
     >
       {/* Header */}
-      <div className={`border-b border-gray-200 ${isMobile ? "p-6" : "p-4"}`}>
+      <div className={`border-b border-gray-200 ${isMobile ? "p-6" : isCollapsed ? "p-2" : "p-4"}`}>
         <div className="flex items-center justify-between mb-4">
-          <h1
-            className={`font-semibold text-gray-900 ${isMobile ? "text-xl" : "text-lg"}`}
-          >
-            Noted.cloud
-          </h1>
+          {!isCollapsed && (
+            <h1
+              className={`font-semibold text-gray-900 ${isMobile ? "text-xl" : "text-lg"}`}
+            >
+              Noted.cloud
+            </h1>
+          )}
+
+          {/* Bouton de réduction pour desktop */}
+          {!isMobile && onToggleCollapse && (
+            <button
+              onClick={onToggleCollapse}
+              className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+              aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            >
+              <svg
+                className="w-5 h-5 text-gray-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                {isCollapsed ? (
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 7l5 5-5 5M6 12h12"
+                  />
+                ) : (
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M11 17l-5-5 5-5M18 12H6"
+                  />
+                )}
+              </svg>
+            </button>
+          )}
 
           {/* Bouton de fermeture pour mobile */}
           {isMobile && onClose && (
@@ -236,8 +304,9 @@ export default function Sidebar({
         <button
           onClick={handleCreatePage}
           className={`w-full flex items-center gap-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors ${
-            isMobile ? "px-4 py-3 text-base" : "px-3 py-2 text-sm"
+            isMobile ? "px-4 py-3 text-base" : isCollapsed ? "px-2 py-2 justify-center" : "px-3 py-2 text-sm"
           }`}
+          title={isCollapsed ? "New Page" : undefined}
         >
           <svg
             className={`${isMobile ? "w-5 h-5" : "w-4 h-4"}`}
@@ -252,39 +321,43 @@ export default function Sidebar({
               d="M12 6v6m0 0v6m0-6h6m-6 0H6"
             />
           </svg>
-          New Page
+          {!isCollapsed && "New Page"}
         </button>
       </div>
 
       {/* Pages List */}
-      <div className={`flex-1 overflow-y-auto ${isMobile ? "p-3" : "p-2"}`}>
+      <div className={`flex-1 overflow-y-auto ${isMobile ? "p-3" : isCollapsed ? "p-1" : "p-2"}`}>
         {rootPages.length === 0 ? (
           <div
-            className={`text-center text-gray-500 ${isMobile ? "py-12" : "py-8"}`}
+            className={`text-center text-gray-500 ${isMobile ? "py-12" : isCollapsed ? "py-4" : "py-8"}`}
           >
-            <div className={`${isMobile ? "mb-4" : "mb-2"}`}>
-              <svg
-                className={`mx-auto text-gray-300 ${isMobile ? "w-12 h-12" : "w-8 h-8"}`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1}
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                />
-              </svg>
-            </div>
-            <p className={`${isMobile ? "text-base" : "text-sm"}`}>
-              No pages yet
-            </p>
-            <p
-              className={`text-xs text-gray-400 mt-1 ${isMobile ? "text-sm" : ""}`}
-            >
-              Create your first page
-            </p>
+            {!isCollapsed && (
+              <>
+                <div className={`${isMobile ? "mb-4" : "mb-2"}`}>
+                  <svg
+                    className={`mx-auto text-gray-300 ${isMobile ? "w-12 h-12" : "w-8 h-8"}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1}
+                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                    />
+                  </svg>
+                </div>
+                <p className={`${isMobile ? "text-base" : "text-sm"}`}>
+                  No pages yet
+                </p>
+                <p
+                  className={`text-xs text-gray-400 mt-1 ${isMobile ? "text-sm" : ""}`}
+                >
+                  Create your first page
+                </p>
+              </>
+            )}
           </div>
         ) : (
           <div className="space-y-1">
@@ -294,7 +367,7 @@ export default function Sidebar({
       </div>
 
       {/* Footer - Masqué sur mobile pour économiser l'espace */}
-      {!isMobile && (
+      {!isMobile && !isCollapsed && (
         <div className="p-4 border-t border-gray-200 bg-gray-50">
           <div className="mb-4 text-center">
             <a

@@ -229,25 +229,26 @@ export default function SetupForm() {
               </div>
 
               <div className="flex items-start gap-3">
-                <div className="w-5 h-5 bg-orange-100 rounded-full flex items-center justify-center mt-0.5">
+                <div className="w-5 h-5 bg-green-100 rounded-full flex items-center justify-center mt-0.5">
                   <svg
-                    className="w-3 h-3 text-orange-600"
+                    className="w-3 h-3 text-green-600"
                     fill="currentColor"
                     viewBox="0 0 20 20"
+                    xmlns="http://www.w3.org/2000/svg"
                   >
                     <path
                       fillRule="evenodd"
-                      d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z"
+                      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
                       clipRule="evenodd"
                     />
                   </svg>
                 </div>
                 <div>
-                  <div className="text-xs md:text-sm font-medium text-blue-900">
-                    Slash Commands
+                  <div className="text-xs md:text-sm font-medium text-green-900">
+                    Smart Citations
                   </div>
-                  <div className="text-xs text-blue-700">
-                    Type &ldquo;/&rdquo; for AI writing assistance and commands
+                  <div className="text-xs text-green-700">
+                    AI explanations are automatically linked to your highlighted text
                   </div>
                 </div>
               </div>

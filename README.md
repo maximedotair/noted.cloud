@@ -82,7 +82,6 @@ It works everywhere:
 1. **Highlight any text** - Select words or phrases you want to understand
 2. **Click "Explain"** - Get instant AI explanations
 3. **Contextual citations** - Explanations are automatically linked to your text
-4. **Slash commands** - Type "/" to ask questions or get AI assistance
 
 ### AI Models
 - **Default models**: Claude 4 Sonnet, Kimi K2

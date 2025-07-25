@@ -17,13 +17,6 @@ export interface NotesState {
   // État de l'interface
   expandedPages: Set<string>;
   selectedText: string | null;
-  isAIModalOpen: boolean;
-  aiContext: {
-    type: 'explain' | 'command';
-    selectedText?: string;
-    command?: string;
-    position?: { x: number; y: number };
-  } | null;
 }
 
 export interface NotesActions {
@@ -41,8 +34,6 @@ export interface NotesActions {
   // Actions de l'interface
   toggleExpandedPage: (pageId: string) => void;
   setSelectedText: (text: string | null) => void;
-  openAIModal: (context: NotesState['aiContext']) => void;
-  closeAIModal: () => void;
   
   // Sélecteurs optimisés
   getRootPages: () => Page[];
@@ -70,8 +61,6 @@ export const useNotesStore = create<NotesStore>()(
     isConfigured: false,
     expandedPages: new Set<string>(),
     selectedText: null,
-    isAIModalOpen: false,
-    aiContext: null,
 
     // Actions des pages
     loadPages: async () => {
@@ -261,14 +250,6 @@ export const useNotesStore = create<NotesStore>()(
       set({ selectedText: text });
     },
 
-    openAIModal: (context) => {
-      set({ isAIModalOpen: true, aiContext: context });
-    },
-
-    closeAIModal: () => {
-      set({ isAIModalOpen: false, aiContext: null });
-    },
-
     // Sélecteurs optimisés
     getRootPages: () => {
       const state = get();
@@ -309,9 +290,7 @@ export const useNotesStore = create<NotesStore>()(
         },
         isConfigured: false,
         expandedPages: new Set(),
-        selectedText: null,
-        isAIModalOpen: false,
-        aiContext: null
+        selectedText: null
       });
     }
   }))
@@ -328,7 +307,3 @@ export const usePageChildren = () => useNotesStore((state) => state.pages);
 
 export const useIsConfigured = () => useNotesStore((state) => state.isConfigured);
 export const useSettings = () => useNotesStore((state) => state.settings);
-
-// Sélecteurs séparés pour éviter les re-renders inutiles
-export const useIsAIModalOpen = () => useNotesStore((state) => state.isAIModalOpen);
-export const useAIModalContext = () => useNotesStore((state) => state.aiContext);

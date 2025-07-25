@@ -45,6 +45,7 @@ export default function Editor({
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isAISidebarExpanded, setIsAISidebarExpanded] = useState(true);
+  const [isAISidebarVisible, setIsAISidebarVisible] = useState(true);
   const contentRef = useRef<HTMLTextAreaElement>(null);
 
   // Synchronize states with active page (only when page changes)
@@ -192,6 +193,21 @@ export default function Editor({
         textarea.selectionEnd,
       );
       if (text.trim()) {
+        // Ignorer si toute la sélection correspond à tout le contenu (Cmd+A / Ctrl+A)
+        // mais seulement si le contenu a plusieurs lignes (pour éviter d'ignorer les textes courts)
+        const isSelectAll = textarea.selectionStart === 0 && 
+                           textarea.selectionEnd === textarea.value.length;
+        
+        if (isSelectAll) {
+          // Compter le nombre de lignes dans le contenu
+          const lineCount = textarea.value.split('\n').length;
+          // Ignorer seulement si c'est une sélection complète ET qu'il y a plusieurs lignes
+          if (lineCount > 1) {
+            setSelectionContext(null);
+            return;
+          }
+        }
+
         // Check if selected text is already part of a marker [[text:id]]
         const startIndex = textarea.selectionStart;
         const endIndex = textarea.selectionEnd;
@@ -220,6 +236,16 @@ export default function Editor({
             start: textarea.selectionStart,
             end: textarea.selectionEnd,
           });
+
+          // Montrer automatiquement l'AISidebar si AI est activé
+          if (settings.aiAssistantEnabled) {
+            setIsAISidebarVisible(true);
+            
+            // Sur mobile/responsive, réduire le clavier virtuel
+            if (isMobile && contentRef.current) {
+              contentRef.current.blur();
+            }
+          }
 
           // Sur mobile avec AI activé, appel direct à l'API
           if (isMobile && settings.aiAssistantEnabled) {
@@ -516,26 +542,22 @@ export default function Editor({
               onKeyDown={handleKeyDown}
               onMouseUp={handleTextSelection}
               onSelect={handleTextSelection}
+              onFocus={() => {
+                // Cacher l'AISidebar quand l'utilisateur clique dans l'éditeur
+                setIsAISidebarVisible(false);
+              }}
               onTouchEnd={handleTextSelection} // Support tactile
               className={`w-full h-full resize-none outline-none text-gray-900 leading-relaxed overflow-auto ${
                 isMobile ? "p-4 text-base" : "p-6 text-base"
               }`}
               placeholder={
-                isMobile
-                  ? `Start writing...
+               `Start writing...
 
 Tips:
-• Type '/' to use AI
 • Select text to get explanations
-• Click 👁️ Preview to see markdown rendering`
-                  : `Start writing...
-
-Tips:
-• Type '/' to use AI
-• Select text to get explanations
-• Use Ctrl+S to save (auto-saves every second)
-• Click 👁️ Preview to see GitHub-style markdown`
-              }
+• Click 👁️ Preview to see markdown rendering
+• Click 🤖 to enable or disable AI assistant
+• Click 🔗 to share the note`}
               style={{
                 fontFamily: isMobile
                   ? 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
@@ -576,6 +598,8 @@ Tips:
               apiKey={apiKey}
               model={model}
               isMobile={isMobile}
+              isVisible={isAISidebarVisible}
+              onToggleVisibility={() => setIsAISidebarVisible(!isAISidebarVisible)}
             />
           </div>
         )}
@@ -589,6 +613,8 @@ Tips:
               apiKey={apiKey}
               model={model}
               isMobile={isMobile}
+              isVisible={isAISidebarVisible}
+              onToggleVisibility={() => setIsAISidebarVisible(!isAISidebarVisible)}
             />
           </div>
         )}

@@ -6,6 +6,7 @@ import { useNotesStore } from "@/lib/store";
 import ReactMarkdown from "react-markdown";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { tomorrow } from "react-syntax-highlighter/dist/esm/styles/prism";
+import AISettingsModal from "./AISettingsModal";
 
 interface AISidebarProps {
   selectionContext: { text: string; start: number; end: number } | null;
@@ -13,6 +14,9 @@ interface AISidebarProps {
   apiKey: string;
   model: string;
   isMobile?: boolean;
+  isVisible?: boolean;
+  onToggleVisibility?: () => void;
+  onAddToNote?: () => void;
 }
 
 export default function AISidebar({
@@ -21,14 +25,15 @@ export default function AISidebar({
   apiKey,
   model,
   isMobile = false,
+  isVisible = true,
+  onToggleVisibility,
+  onAddToNote,
 }: AISidebarProps) {
   const [loading, setLoading] = useState(false);
   const [response, setResponse] = useState("");
   const [error, setError] = useState("");
   const [currentModel, setCurrentModel] = useState(model);
-  const [showSettings, setShowSettings] = useState(false);
-  const [customModel, setCustomModel] = useState("");
-  const [apiKeyInput, setApiKeyInput] = useState("");
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
   const { updateSettings, settings } = useNotesStore();
 
   const generateExplanation = useCallback(async () => {
@@ -135,33 +140,7 @@ export default function AISidebar({
 
   const handleModelChange = async (newModel: string) => {
     await updateSettings({ defaultModel: newModel });
-    setShowSettings(false);
-  };
-
-  const handleAddCustomModel = async () => {
-    if (!customModel.trim()) return;
-
-    const customModels = settings.customModels || [];
-    const updatedModels = [...customModels, customModel.trim()];
-
-    await updateSettings({
-      customModels: updatedModels,
-      defaultModel: customModel.trim(),
-    });
-
-    setCustomModel("");
-    setShowSettings(false);
-  };
-
-  const handleApiKeyChange = async () => {
-    if (!apiKeyInput.trim()) return;
-
-    await updateSettings({
-      openrouterApiKey: apiKeyInput.trim(),
-    });
-
-    setApiKeyInput("");
-    setShowSettings(false);
+    setShowSettingsModal(false);
   };
 
   const handleToggleAIAssistant = async (enabled: boolean) => {
@@ -183,21 +162,17 @@ export default function AISidebar({
       },
     });
     window.dispatchEvent(event);
+
+    // Notifier le parent que "Add to note" a été cliqué
+    if (onAddToNote) {
+      onAddToNote();
+    }
   };
 
-  const availableModels = [
-    ...DEFAULT_MODELS,
-    ...(settings.customModels || []).map((modelId) => ({
-      id: modelId,
-      name: modelId,
-      description: "Modèle personnalisé",
-      context_length: 0,
-      pricing: { prompt: "0", completion: "0" },
-    })),
-  ];
-
   return (
-    <div className="w-full bg-gray-50 flex flex-col h-64 max-h-[400px]">
+    <div className={`w-full bg-gray-50 flex flex-col transition-all duration-300 ${
+      isVisible ? 'h-64 max-h-[400px]' : 'h-auto'
+    }`}>
       {/* Header */}
       <div
         className={`border-b border-gray-200 bg-white flex items-center justify-between ${isMobile ? "px-4 py-3" : "px-4 py-2"}`}
@@ -229,126 +204,83 @@ export default function AISidebar({
             {settings.aiAssistantEnabled ? "ON" : "OFF"}
           </button>
         </div>
-        <button
-          onClick={() => setShowSettings(!showSettings)}
-          className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
-          title="Configure model"
-        >
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+        <div className="flex items-center gap-1">
+          {/* Bouton de visibilité */}
+          {onToggleVisibility && (
+            <button
+              onClick={onToggleVisibility}
+              className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+              title={isVisible ? "Hide AI Assistant" : "Show AI Assistant"}
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                {isVisible ? (
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
+                ) : (
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 15l7-7 7 7"
+                  />
+                )}
+              </svg>
+            </button>
+          )}
+          
+          {/* Bouton de paramètres */}
+          <button
+            onClick={() => setShowSettingsModal(!showSettingsModal)}
+            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+            title="Configure model"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-            />
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-            />
-          </svg>
-        </button>
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+              />
+            </svg>
+          </button>
+        </div>
       </div>
 
-      {/* Settings Panel */}
-      {showSettings && (
-        <div className="border-b border-gray-200 bg-white p-4 space-y-3">
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-2">
-              OpenRouter API Key
-            </label>
-            <div className="flex gap-2">
-              <input
-                type="password"
-                value={apiKeyInput}
-                onChange={(e) => setApiKeyInput(e.target.value)}
-                placeholder="sk-or-xxxxxxxxxxxxxxxx"
-                className="flex-1 text-xs border border-gray-300 rounded-md px-2 py-1.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-              <button
-                onClick={handleApiKeyChange}
-                disabled={!apiKeyInput.trim()}
-                className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
-              >
-                Update
-              </button>
-            </div>
-            {apiKey && (
-              <p className="text-xs text-gray-500 mt-1">
-                Current: {apiKey.slice(0, 8)}...
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-2">
-              Default Language
-            </label>
-            <input
-              type="text"
-              value={settings.defaultLanguage || "en"}
-              onChange={(e) =>
-                updateSettings({ defaultLanguage: e.target.value })
-              }
-              placeholder="en, fr, es"
-              className="w-full text-xs border border-gray-300 rounded-md px-2 py-1.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              ISO 639-1 code (en, fr, es, etc.)
-            </p>
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-2">
-              Default Model
-            </label>
-            <select
-              value={model}
-              onChange={(e) => handleModelChange(e.target.value)}
-              className="w-full text-xs border border-gray-300 rounded-md px-2 py-1.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              {availableModels.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-2">
-              Add Custom Model
-            </label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={customModel}
-                onChange={(e) => setCustomModel(e.target.value)}
-                placeholder="ex: openai/gpt-4"
-                className="flex-1 text-xs border border-gray-300 rounded-md px-2 py-1.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-              <button
-                onClick={handleAddCustomModel}
-                disabled={!customModel.trim()}
-                className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
-              >
-                Add
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Settings Modal */}
+      <AISettingsModal
+        isOpen={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
+        apiKey={apiKey}
+        model={model}
+        onModelChange={handleModelChange}
+        isMobile={isMobile}
+      />
 
       {/* Content */}
-      <div
-        className={`flex-1 overflow-y-auto h-full ${isMobile ? "p-4" : "p-4"}`}
-      >
+      {isVisible && (
+        <div
+          className={`flex-1 overflow-y-auto h-full ${isMobile ? "p-4" : "p-4"}`}
+        >
         {!selectionContext && !loading && !response && (
           <div
             className={`text-center text-gray-500 ${isMobile ? "py-6" : "py-4"}`}
@@ -403,7 +335,7 @@ export default function AISidebar({
                   />
                 </svg>
                 <span className="text-xs font-medium text-blue-800">
-                  {availableModels.find((m) => m.id === currentModel)?.name ||
+                  {DEFAULT_MODELS.find((m) => m.id === currentModel)?.name ||
                     currentModel}
                 </span>
               </div>
@@ -475,6 +407,7 @@ export default function AISidebar({
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }

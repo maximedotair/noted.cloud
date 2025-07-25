@@ -157,26 +157,6 @@ For example, if the selected text is "Eminem", and the context is an article abo
 
     return this.generateCompletion(prompt, model, systemPrompt);
   }
-
-  async processSlashCommand(
-    command: string,
-    context: string,
-    model: string = DEFAULT_MODEL_ID,
-    defaultLanguage: string = 'en'
-  ): Promise<AIResponse> {
-    const language = defaultLanguage;
-    
-    const baseSystemPrompt = `You are an AI assistant for a note-taking application similar to Notion.
-The user can type "/" followed by a command to get help.
-Respond directly and usefully according to the page context.
-Format your response in markdown if appropriate.`;
-
-    const systemPrompt = this.getSystemPromptForLanguage(language, baseSystemPrompt);
-
-    const prompt = `Page context: """${context}"""\n\nUser command: """${command}"""\n\nPlease respond to this command.`;
-
-    return this.generateCompletion(prompt, model, systemPrompt);
-  }
 }
 
 // Modèles populaires par défaut
