@@ -37,7 +37,7 @@ export default function Editor({
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isAISidebarExpanded, setIsAISidebarExpanded] = useState(true);
-  const [isAISidebarVisible, setIsAISidebarVisible] = useState(true); // Visible par défaut
+  const [isAISidebarVisible, setIsAISidebarVisible] = useState(false); // Caché par défaut, n'apparaît que lors d'une sélection
   const contentRef = useRef<HTMLTextAreaElement>(null);
 
   // Synchronize states with active page (only when page changes)
@@ -246,11 +246,6 @@ export default function Editor({
           // Montrer automatiquement l'AISidebar si AI est activé
           if (settings.aiAssistantEnabled) {
             setIsAISidebarVisible(true);
-            
-            // Sur mobile/responsive, réduire le clavier virtuel
-            if (isMobile && contentRef.current) {
-              contentRef.current.blur();
-            }
           }
 
           // Sur mobile avec AI activé, appel direct à l'API
@@ -496,11 +491,15 @@ export default function Editor({
             onKeyDown={handleKeyDown}
             onMouseUp={handleTextSelection}
             onSelect={handleTextSelection}
+            onTouchEnd={(e) => {
+              // Délai pour permettre à la sélection de se terminer avant de traiter
+              setTimeout(() => handleTextSelection(), 50);
+            }}
             onFocus={() => {
-              // Cacher l'AISidebar quand l'utilisateur clique dans l'éditeur
+              // Cacher l'AISidebar lors du focus pour donner plus de visibilité à l'écriture
+              // L'AISidebar réapparaîtra automatiquement lors d'une sélection
               setIsAISidebarVisible(false);
             }}
-            onTouchEnd={handleTextSelection} // Support tactile
             className={`w-full h-full resize-none outline-none text-gray-900 leading-relaxed overflow-y-auto ${
               isMobile ? "p-4 text-base" : "p-6 text-base"
             }`}
